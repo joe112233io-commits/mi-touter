@@ -1,0 +1,20 @@
+# Normalize line endings: keep LF in the repository, check out per platform.
+* text=auto eol=lf
+
+# Scripts that must stay LF (Electron main/preload run under Node).
+*.js text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+
+# Binary assets - never touched by diff or line-ending conversion.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary

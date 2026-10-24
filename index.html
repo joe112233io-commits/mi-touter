@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TutorAI — Next Level AI Tutoring for Life-Long Learners</title>
+  <meta name="description" content="TutorAI turns any topic or document into a bespoke, interactive, step-by-step course with AI tutoring, math solver, and spaced repetition flashcards.">
+  
+  <!-- Modern Geometric Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Design System CSS -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- ==========================================================================
+       DUAL NAVIGATION ARCHITECTURE (Technical Report Section 3.b)
+       ========================================================================== -->
+  <header class="navbar-container">
+    <!-- 1. Public Marketing Navbar -->
+    <nav class="nav-bar" id="marketingNavbar">
+      <a href="#home" class="brand-logo" data-route="home">
+        <span>tutor<span class="brand-highlight">AI</span></span>
+      </a>
+
+      <ul class="nav-links">
+        <li class="nav-item">
+          <a href="#home" class="nav-link active" data-route="home">Tutor AI</a>
+        </li>
+        <li class="nav-item">
+          <a href="#homeworkify" class="nav-link" data-route="homeworkify">
+            AI Homework Assistants ▾
+          </a>
+          <div class="dropdown-menu">
+            <a href="#homeworkify" class="dropdown-item" data-route="homeworkify">📝 Homeworkify & Writing Coach</a>
+            <a href="#ai-math-solver" class="dropdown-item" data-route="ai-math-solver">📐 AI Math Solver (OCR)</a>
+          </div>
+        </li>
+        <li class="nav-item">
+          <a href="#pricing" class="nav-link" data-route="pricing">
+            B2B Solutions ▾
+          </a>
+          <div class="dropdown-menu">
+            <a href="#pricing" class="dropdown-item" data-route="pricing">🎓 AI for Educators</a>
+            <a href="#pricing" class="dropdown-item" data-route="pricing">🏢 AI Corporate Training</a>
+            <a href="#pricing" class="dropdown-item" data-route="pricing">🏷️ Whitelabel AI Tutor</a>
+          </div>
+        </li>
+        <li class="nav-item">
+          <a href="#free-online-courses" class="nav-link" data-route="free-online-courses">Free Courses</a>
+        </li>
+        <li class="nav-item">
+          <a href="#pricing" class="nav-link" data-route="pricing">Pricing</a>
+        </li>
+      </ul>
+
+      <div class="nav-actions">
+        <!-- Dual Mode Quick Switcher -->
+        <div class="mode-toggle-pill" title="Switch between Marketing and Workspace Navbar">
+          <button class="mode-pill-btn active" id="modeMarketingBtn">Public</button>
+          <button class="mode-pill-btn" id="modeAppBtn">App</button>
+        </div>
+        <button class="btn-signin" id="navSignInBtn">SIGN IN</button>
+      </div>
+    </nav>
+
+    <!-- 2. Workspace App Navbar -->
+    <nav class="nav-bar" id="workspaceNavbar" style="display: none;">
+      <a href="#course" class="brand-logo" data-route="course">
+        <span>tutor<span class="brand-highlight">AI</span></span>
+        <span class="brand-badge">Workspace</span>
+      </a>
+
+      <ul class="nav-links">
+        <li class="nav-item">
+          <a href="#course" class="nav-link" data-route="course">Current Course</a>
+        </li>
+        <li class="nav-item">
+          <a href="#create-course" class="nav-link" data-route="create-course">Create New Course</a>
+        </li>
+        <li class="nav-item">
+          <a href="#flashcards" class="nav-link" data-route="flashcards">Flashcards</a>
+        </li>
+        <li class="nav-item">
+          <a href="#library" class="nav-link" data-route="library">Library</a>
+        </li>
+        <li class="nav-item">
+          <a href="#profile" class="nav-link" data-route="profile">Profile</a>
+        </li>
+      </ul>
+
+      <div class="nav-actions">
+        <div class="mode-toggle-pill">
+          <button class="mode-pill-btn" onclick="window.tutorApp.navigateTo('home')">Public</button>
+          <button class="mode-pill-btn active" onclick="window.tutorApp.navigateTo('course')">App</button>
+        </div>
+        <button class="btn-secondary" onclick="window.tutorApp.navigateTo('create-course')" style="padding: 7px 16px; font-size: 0.88rem;">+ New Course</button>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ==========================================================================
+         SCREEN 1: HOMEPAGE (Report Section 3.c.1)
+         ========================================================================== -->
+    <section class="view-section active-view" id="view-home">
+      <!-- Hero Section -->
+      <div class="hero-section">
+        <div class="hero-wrapper">
+          <h1 class="hero-title">
+            Next Level AI Tutoring for <span class="gradient-text">Life-Long Learners</span>
+          </h1>
+          <p class="hero-subtitle">
+            Create a custom learning pathway to help you achieve more in school, work, and life.
+          </p>
+
+          <!-- Prompt Input Bar -->
+          <div class="prompt-input-bar">
+            <input type="text" id="heroPromptInput" placeholder="What do you want to learn today?" autocomplete="off">
+            <button class="btn-primary" id="heroGenerateBtn">Create Custom Courses</button>
+          </div>
+
+          <!-- Quick-Start Topic Pills -->
+          <div class="quick-start-pills">
+            <span class="pills-label">Popular courses:</span>
+            <button class="topic-pill" data-topic="Fundamentals of Machine Learning">Fundamentals of Machine Learning</button>
+            <button class="topic-pill" data-topic="Intermediate French Grammar">Intermediate French</button>
+            <button class="topic-pill" data-topic="Mindfulness at work">Mindfulness at work</button>
+          </div>
+
+          <div>
+            <button class="video-explainer-trigger" id="btnOpenVideoModal">
+              ▶ Play Tutor AI explained in 109 seconds
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Social Proof Strip -->
+      <div class="social-proof-strip">
+        <div class="stats-grid-4">
+          <div class="stat-item">
+            <div class="stat-value">800K+</div>
+            <div class="stat-label">Happy Learners</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">10M+</div>
+            <div class="stat-label">Courses Generated</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">14+</div>
+            <div class="stat-label">Years Of Experience</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">23+</div>
+            <div class="stat-label">Universities Using Tutor AI</div>
+          </div>
+        </div>
+
+        <div class="universities-banner">
+          <div class="universities-caption">Helping students & faculty at top universities succeed</div>
+          <div class="uni-logos-row">
+            <span class="uni-badge">🏛️ Harvard</span>
+            <span class="uni-badge">🎓 Stanford</span>
+            <span class="uni-badge">🔬 MIT</span>
+            <span class="uni-badge">📚 Oxford</span>
+            <span class="uni-badge">💡 Cambridge</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Everything You Need to Learn Smarter (6 Features) -->
+      <div class="section-container">
+        <div class="section-header">
+          <h2 class="section-title">Everything You Need to Learn Smarter</h2>
+          <p class="section-desc">Designed with task-first minimalism to keep your focus locked on rapid comprehension.</p>
+        </div>
+
+        <div class="features-grid-6">
+          <div class="feature-card">
+            <div class="feature-icon-box">🎯</div>
+            <h3 class="feature-card-title">Personalized Learning Paths</h3>
+            <p class="feature-card-text">Courses tailored to your exact goal, current knowledge level, and preferred learning style.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon-box">⚡</div>
+            <h3 class="feature-card-title">Instant Course Creation</h3>
+            <p class="feature-card-text">Turn any topic, concept, or uploaded syllabus document into a structured curriculum in seconds.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon-box">📚</div>
+            <h3 class="feature-card-title">Comprehensive Content</h3>
+            <p class="feature-card-text">Modules and focused lessons ordered logically from fundamentals to applied mastery.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon-box">🤖</div>
+            <h3 class="feature-card-title">AI Homework Helper</h3>
+            <p class="feature-card-text">Step-by-step pedagogical help, OCR photo math recognition, and writing coach feedback.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon-box">📊</div>
+            <h3 class="feature-card-title">Track Your Progress</h3>
+            <p class="feature-card-text">See completion rates, quiz scores, and retention statistics at a single glance.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon-box">🌐</div>
+            <h3 class="feature-card-title">Learn Anything</h3>
+            <p class="feature-card-text">From quantum mechanics to creative writing and languages, with zero friction onboarding.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: How Tutor AI Works (4 Steps) -->
+      <div class="section-container" style="background: #FFFFFF; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+        <div class="section-header">
+          <h2 class="section-title">How Tutor AI Works</h2>
+          <p class="section-desc">Four streamlined steps to mastering any skill without information overload.</p>
+        </div>
+
+        <div class="steps-grid-4">
+          <div class="step-card">
+            <div class="step-number">01</div>
+            <h3 class="step-title">Choose Your Topic</h3>
+            <p class="step-desc">Enter any prompt or upload your lecture notes / PDF textbooks.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">02</div>
+            <h3 class="step-title">AI Creates Your Course</h3>
+            <p class="step-desc">Curriculum Architect engine maps out progressive modules and actionable lessons.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">03</div>
+            <h3 class="step-title">Learn at Your Pace</h3>
+            <p class="step-desc">Read on-demand lessons, listen via Read Aloud, or simplify with analogies.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">04</div>
+            <h3 class="step-title">Master Your Subject</h3>
+            <p class="step-desc">Solidify knowledge with inline quizzes and SM-2 spaced repetition flashcards.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Perfect for Every Learner -->
+      <div class="section-container">
+        <div class="section-header">
+          <h2 class="section-title">Perfect for Every Learner</h2>
+          <p class="section-desc">Empowering millions across academia, career transitions, and continuous self-improvement.</p>
+        </div>
+
+        <div class="audiences-grid-4">
+          <div class="audience-card">
+            <h3 class="audience-title">Students & Academics</h3>
+            <p class="audience-desc">Deconstruct heavy university textbooks and master STEM equations with verified steps.</p>
+          </div>
+          <div class="audience-card">
+            <h3 class="audience-title">Professionals & Career Growth</h3>
+            <p class="audience-desc">Upskill in AI, software engineering, financial modeling, or leadership on your own time.</p>
+          </div>
+          <div class="audience-card">
+            <h3 class="audience-title">Lifelong Learners</h3>
+            <p class="audience-desc">Explore art history, creative writing, world languages, and positive psychology with ease.</p>
+          </div>
+          <div class="audience-card">
+            <h3 class="audience-title">Businesses & Teams</h3>
+            <p class="audience-desc">Automate employee onboarding, compliance training, and role-based learning tracks.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: FAQ Accordion -->
+      <div class="section-container" style="background: #FFFFFF; border-top: 1px solid var(--border);">
+        <div class="section-header">
+          <h2 class="section-title">Frequently Asked Questions</h2>
+          <p class="section-desc">Everything you need to know about TutorAI's generative LMS and offline capabilities.</p>
+        </div>
+
+        <div class="faq-list">
+          <div class="faq-item open">
+            <button class="faq-question">
+              <span>How does TutorAI differ from Coursera or ChatGPT?</span>
+              <span class="faq-toggle-icon">▼</span>
+            </button>
+            <div class="faq-answer">
+              Unlike static pre-recorded platforms (Coursera/Udemy) that lock you into one rigid path, and unlike general chat windows that lack academic structure, TutorAI combines automated bespoke curriculum generation with interactive, on-demand AI tutoring, LaTeX math solving, and spaced repetition.
+            </div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Can I build courses directly from my own PDF files?</span>
+              <span class="faq-toggle-icon">▼</span>
+            </button>
+            <div class="faq-answer">
+              Yes! With our "Use your own sources" (RAG) feature, you can upload textbooks, lecture notes, or company policy PDFs. The system strictly grounds its curriculum and terminology in your document.
+            </div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>How does the offline Realm DB integration work?</span>
+              <span class="faq-toggle-icon">▼</span>
+            </button>
+            <div class="faq-answer">
+              All courses, modules, lessons, quizzes, flashcards, and homework solutions are stored locally in a high-speed Realm database. When packaged as an Electron desktop app, all data remains completely private on your machine without mandatory internet dependencies.
+            </div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>What is the SM-2 Spaced Repetition Algorithm?</span>
+              <span class="faq-toggle-icon">▼</span>
+            </button>
+            <div class="faq-answer">
+              TutorAI uses the SuperMemo-2 algorithm to schedule review intervals based on your difficulty rating (Again, Hard, Good, Easy), updating the card's Easiness Factor (EF) and scheduling reviews to maximize long-term retention.
+            </div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Is there a free plan available?</span>
+              <span class="faq-toggle-icon">▼</span>
+            </button>
+            <div class="faq-answer">
+              Yes, our Free Plan allows zero-friction access to Homeworkify, AI Math Solver, and our 9 pre-built free online courses with no credit card required.
+            </div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Can I convert this into an Electron desktop application?</span>
+              <span class="faq-toggle-icon">▼</span>
+            </button>
+            <div class="faq-answer">
+              This repository is pre-configured with package.json, main.js, and preload.js. Simply running `npm start` launches it natively inside Electron with native file dialogs and local database persistence.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTA Banner & Footer -->
+      <div class="section-container">
+        <div class="cta-banner-wrapper">
+          <h2 class="cta-banner-title">Start Learning Faster Today</h2>
+          <p class="cta-banner-sub">Join over 800,000 learners generating personalized masteries in seconds.</p>
+          <div class="cta-buttons-row">
+            <button class="btn-primary" onclick="window.tutorApp.navigateTo('create-course')">Create Your First Course</button>
+            <button class="btn-secondary" onclick="window.tutorApp.navigateTo('pricing')" style="background: transparent; color: #FFFFFF; border-color: rgba(255,255,255,0.3);">View Pricing</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4-Column Footer (Report Section 3.c.1) -->
+      <footer class="footer-wrapper">
+        <div class="footer-grid-4">
+          <div>
+            <div class="footer-col-title">Products</div>
+            <ul class="footer-col-links">
+              <li><a href="#free-online-courses" data-route="free-online-courses">Free Online Courses</a></li>
+              <li><a href="#homeworkify" data-route="homeworkify">Homeworkify</a></li>
+              <li><a href="#ai-math-solver" data-route="ai-math-solver">AI Math Solver</a></li>
+              <li><a href="#flashcards" data-route="flashcards">Flashcards Dashboard</a></li>
+            </ul>
+          </div>
+          <div>
+            <div class="footer-col-title">For Business</div>
+            <ul class="footer-col-links">
+              <li><a href="#pricing" data-route="pricing">AI for Educators</a></li>
+              <li><a href="#pricing" data-route="pricing">AI Corporate Training</a></li>
+              <li><a href="#pricing" data-route="pricing">Whitelabel AI Training</a></li>
+              <li><a href="#pricing" data-route="pricing">Affiliate Program</a></li>
+            </ul>
+          </div>
+          <div>
+            <div class="footer-col-title">Company</div>
+            <ul class="footer-col-links">
+              <li><a href="#pricing" data-route="pricing">Pricing</a></li>
+              <li><a href="#home" data-route="home">About Us (Lumination AI Ltd)</a></li>
+              <li><a href="#home" data-route="home">Blogs & Insights</a></li>
+              <li><a href="#contact" onclick="document.getElementById('contactModal').classList.add('open')">Contact Us</a></li>
+            </ul>
+          </div>
+          <div>
+            <div class="footer-col-title">Legal</div>
+            <ul class="footer-col-links">
+              <li><a href="#">Terms & Conditions</a></li>
+              <li><a href="#">Privacy Policy (GDPR Compliant)</a></li>
+              <li><a href="#">Academic Integrity</a></li>
+              <li><a href="#">System Security</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="footer-bottom">
+          <div>© 2026 Lumination AI Ltd (UK Co. 15291725). Built in partnership with Azvai.</div>
+          <div>Desktop Edition with Realm DB & Electron Framework Support</div>
+        </div>
+      </footer>
+    </section>
+
+    <!-- ==========================================================================
+         SCREEN 2: CREATE NEW COURSE VIEW (Report Section 3.c.2)
+         ========================================================================== -->
+    <section class="view-section" id="view-create-course">
+      <div class="create-course-wrapper">
+        <div class="create-header">
+          <h1>Create New Course</h1>
+          <p style="color: var(--slate-light);">Enter any subject or concept, and our AI will build an adaptive curriculum for you.</p>
+        </div>
+
+        <div class="create-input-box">
+          <input type="text" id="createCourseInput" placeholder="Enter a topic you want to learn..." autocomplete="off">
+          <button class="btn-primary" id="submitCreateCourseBtn">Create Course</button>
+        </div>
+
+        <div class="options-row-2">
+          <div class="option-box-card" id="useOwnSourcesCard">
+            <div class="option-icon-title">
+              <span>📄</span>
+              <span>Use your own sources</span>
+            </div>
+            <p class="option-subtext">Upload or select documents (PDF/DOCX) to build a course grounded in your own content.</p>
+          </div>
+
+          <div class="option-box-card" id="defineStructureCard">
+            <div class="option-icon-title">
+              <span>🧩</span>
+              <span>Define course structure</span>
+            </div>
+            <p class="option-subtext">Generate and customize modules and lesson titles before building the final course.</p>
+          </div>
+        </div>
+
+        <div class="options-banner-notice">
+          ℹ️ Advanced features active. Your generated courses are automatically saved to your local Realm database.
+        </div>
+
+        <div class="suggested-topics-sec">
+          <div class="suggested-topics-title">Suggested Topics</div>
+          <div class="suggested-btn-cloud">
+            <button class="suggested-btn" data-topic="Productivity Mastery">Productivity Mastery</button>
+            <button class="suggested-btn" data-topic="Creative Writing">Creative Writing</button>
+            <button class="suggested-btn" data-topic="Public Speaking">Public Speaking</button>
+            <button class="suggested-btn" data-topic="Financial Literacy">Financial Literacy</button>
+            <button class="suggested-btn" data-topic="Startup Fundamentals">Startup Fundamentals</button>
+            <button class="suggested-btn" data-topic="Growth Hacking">Growth Hacking</button>
+            <button class="suggested-btn" data-topic="Sustainable Living">Sustainable Living</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         SCREEN 3: TWO-PANE SPLIT STUDY WORKSPACE (Report Section 3.c.3)
+         Left 28% Sidebar | Right 72% Lesson & AI Canvas
+         ========================================================================== -->
+    <section class="view-section" id="view-course">
+      <div class="study-workspace-container">
+        <!-- Left Sidebar: Course Outline & Progress (28%) -->
+        <aside class="course-outline-sidebar">
+          <div class="sidebar-header">
+            <h2 class="course-sidebar-title" id="sidebarCourseTitle">Fundamentals of Machine Learning</h2>
+            <div class="progress-header">
+              <span>Progress</span>
+              <span id="sidebarProgressPercent">38% complete</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="sidebarProgressFill" style="width: 38%;"></div>
+            </div>
+          </div>
+
+          <!-- Modules & Lessons Accordion -->
+          <div class="modules-accordion-list" id="modulesAccordionList">
+            <!-- Dynamically populated from Realm DB -->
+          </div>
+        </aside>
+
+        <!-- Right Canvas: Lesson & AI Canvas (72%) -->
+        <div class="lesson-canvas-container">
+          <div class="lesson-canvas-inner">
+            <div class="lesson-header-meta">
+              <span class="lesson-module-tag" id="lessonModuleTag">MODULE 1 · LESSON 1</span>
+              <div style="display: flex; gap: 10px;">
+                <button class="btn-read-aloud" id="btnReadAloud">🔊 Read aloud</button>
+                <button class="btn-secondary" id="btnMarkComplete" style="padding: 6px 14px; font-size: 0.88rem;">✓ Mark Complete</button>
+              </div>
+            </div>
+
+            <h1 class="lesson-title-main" id="lessonTitleMain">Introduction</h1>
+
+            <!-- Markdown Lesson Body -->
+            <div class="lesson-body-markdown" id="lessonBodyMarkdown">
+              <!-- Content loaded lazily on demand from Realm DB -->
+            </div>
+
+            <!-- In-Lesson Go Deeper Floating Action Bar -->
+            <div class="go-deeper-action-bar">
+              <button class="go-deeper-btn" id="btnGoSimplify" title="Explain using everyday life analogy">
+                <span>🪄</span> Simplify
+              </button>
+              <button class="go-deeper-btn" id="btnGoExamples" title="Generate 3 progressive real-world examples">
+                <span>💡</span> Examples
+              </button>
+              <button class="go-deeper-btn" id="btnGoQuiz" title="Test comprehension with instant 4-choice quiz">
+                <span>📝</span> Quiz
+              </button>
+              <button class="go-deeper-btn" id="btnGoFlashcards" title="Extract flashcards to Spaced Repetition deck">
+                <span>🗂️</span> Flashcards
+              </button>
+              <button class="go-deeper-btn" id="btnGoAsk" title="Open contextual AI chat with lesson context">
+                <span>💬</span> Ask a Question
+              </button>
+            </div>
+
+            <!-- Dynamic Output Container for Go Deeper Toolbar -->
+            <div class="go-deeper-results-panel" id="goDeeperResultsPanel"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         SCREEN 4: AI MATH SOLVER (Report Section 3.c.4)
+         ========================================================================== -->
+    <section class="view-section" id="view-ai-math-solver">
+      <div class="math-solver-container">
+        <!-- 4 Capabilities Pill Strip -->
+        <div class="math-capabilities-pill-strip">
+          <span class="cap-badge">📷 Photo Math</span>
+          <span class="cap-badge">🖥️ Screenshot Solver</span>
+          <span class="cap-badge">✍️ Handwriting Recognition</span>
+          <span class="cap-badge">📐 All Math Topics</span>
+        </div>
+
+        <!-- Drag & Drop Zone -->
+        <div class="math-drop-zone" id="mathDropZone">
+          <div class="math-drop-icon">📷</div>
+          <h2 class="math-drop-title">Upload Your Math Problem - Get Solutions Now</h2>
+          <p class="math-drop-sub">Drag & drop or click to add images / handwritten notes</p>
+          <input type="file" id="mathFileInput" accept="image/*" style="display: none;">
+        </div>
+
+        <!-- Inline Equation Input Bar -->
+        <div class="math-input-inline">
+          <input type="text" id="mathEquationInput" placeholder="Or type equation here, e.g., d/dx [ (3x^2 + 1)^4 ] or 2x^2 - 8x + 6 = 0">
+          <button class="btn-primary" id="solveMathBtn">Solve Step-by-Step</button>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 24px; align-items: center; justify-content: center; flex-wrap: wrap;">
+          <span style="font-size: 0.85rem; color: var(--muted); font-weight: 600;">Try quick samples:</span>
+          <button class="topic-pill" onclick="document.getElementById('mathEquationInput').value='d/dx [ (3x^2 + 1)^4 ]'; document.getElementById('solveMathBtn').click();">Calculus Chain Rule</button>
+          <button class="topic-pill" onclick="document.getElementById('mathEquationInput').value='\\int (6x^2 - 4x + 7) dx'; document.getElementById('solveMathBtn').click();">Polynomial Integral</button>
+          <button class="topic-pill" onclick="document.getElementById('mathEquationInput').value='2x^2 - 8x + 6 = 0'; document.getElementById('solveMathBtn').click();">Quadratic Equation</button>
+        </div>
+
+        <!-- Solution Panel with Numbered Step Cards -->
+        <div class="math-solution-panel" id="mathSolutionPanel"></div>
+
+        <!-- 6 Math Domains Grid -->
+        <div style="margin-top: 48px;">
+          <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--navy); margin-bottom: 16px; text-align: center;">Supported Mathematical Branches</h3>
+          <div class="math-domains-grid-6">
+            <div class="domain-card">
+              <div class="domain-card-title">Calculus (AB/BC & College)</div>
+              <div class="domain-tags-cloud">
+                <span class="domain-subtag">Derivatives</span>
+                <span class="domain-subtag">Integrals</span>
+                <span class="domain-subtag">Chain Rule</span>
+                <span class="domain-subtag">Optimization</span>
+              </div>
+            </div>
+            <div class="domain-card">
+              <div class="domain-card-title">Algebra & Pre-Algebra</div>
+              <div class="domain-tags-cloud">
+                <span class="domain-subtag">Linear Systems</span>
+                <span class="domain-subtag">Quadratics</span>
+                <span class="domain-subtag">Polynomials</span>
+                <span class="domain-subtag">Factoring</span>
+              </div>
+            </div>
+            <div class="domain-card">
+              <div class="domain-card-title">Geometry & Trigonometry</div>
+              <div class="domain-tags-cloud">
+                <span class="domain-subtag">Unit Circle</span>
+                <span class="domain-subtag">Trig Identities</span>
+                <span class="domain-subtag">Coordinate Geometry</span>
+              </div>
+            </div>
+            <div class="domain-card">
+              <div class="domain-card-title">Statistics & Probability</div>
+              <div class="domain-tags-cloud">
+                <span class="domain-subtag">Normal Distribution</span>
+                <span class="domain-subtag">Hypothesis Testing</span>
+                <span class="domain-subtag">Bayes Theorem</span>
+              </div>
+            </div>
+            <div class="domain-card">
+              <div class="domain-card-title">Pre-Calculus</div>
+              <div class="domain-tags-cloud">
+                <span class="domain-subtag">Matrices</span>
+                <span class="domain-subtag">Sequences & Series</span>
+                <span class="domain-subtag">Vectors</span>
+              </div>
+            </div>
+            <div class="domain-card">
+              <div class="domain-card-title">Word Problems</div>
+              <div class="domain-tags-cloud">
+                <span class="domain-subtag">Rate & Work</span>
+                <span class="domain-subtag">Financial Math</span>
+                <span class="domain-subtag">Physics Motion</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trust & Performance Statistics -->
+        <div class="stats-grid-4" style="margin-top: 40px; padding: 24px; background: #FFFFFF; border-radius: var(--radius-lg); border: 1px solid var(--border);">
+          <div class="stat-item">
+            <div class="stat-value">3 sec</div>
+            <div class="stat-label">Average Solve Time</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">99%</div>
+            <div class="stat-label">Accuracy Rate</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">24/7</div>
+            <div class="stat-label">Always Online</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">10M+</div>
+            <div class="stat-label">Problems Solved</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         SCREEN 5: FLASHCARDS & SPACED REPETITION (Report Section 3.c.5 & 4.d)
+         ========================================================================== -->
+    <section class="view-section" id="view-flashcards">
+      <div class="flashcards-container">
+        <!-- 3 Stats Cards -->
+        <div class="fc-stats-row">
+          <div class="fc-stat-card">
+            <div class="num" id="fcDueCount">12</div>
+            <div class="label">Due today</div>
+          </div>
+          <div class="fc-stat-card">
+            <div class="num" id="fcMasteredCount">47</div>
+            <div class="label">Mastered</div>
+          </div>
+          <div class="fc-stat-card">
+            <div class="num" id="fcRetentionRate">81%</div>
+            <div class="label">Retention</div>
+          </div>
+        </div>
+
+        <!-- 3D CSS Flip Card (Page 15) -->
+        <div class="flip-card-perspective-wrapper" id="flashcardFlipWrapper">
+          <div class="flip-card-inner" id="flashcardInner">
+            <!-- Front Face -->
+            <div class="flip-card-face flip-card-front">
+              <span class="flip-card-badge">TERM · CLICK TO FLIP</span>
+              <div class="flip-card-prompt-text" id="flipCardPrompt">What is overfitting?</div>
+              <span class="flip-click-hint">Click card or spacebar to reveal definition</span>
+            </div>
+            <!-- Back Face -->
+            <div class="flip-card-face flip-card-back">
+              <span class="flip-card-badge">ANSWER / EXPLANATION</span>
+              <div class="flip-card-answer-text" id="flipCardAnswer">
+                A statistical model that models training noise rather than the underlying distribution, resulting in poor test generalization.
+              </div>
+              <span class="flip-click-hint">Rate your recall below to schedule next review</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SM-2 Rating Buttons (Again, Hard, Good, Easy) -->
+        <div class="sm2-rating-row">
+          <button class="sm2-btn again" data-sm2-grade="0">Again (0)</button>
+          <button class="sm2-btn hard" data-sm2-grade="1">Hard (1)</button>
+          <button class="sm2-btn good" data-sm2-grade="2">Good (2)</button>
+          <button class="sm2-btn easy" data-sm2-grade="3">Easy (3)</button>
+        </div>
+
+        <div style="text-align: center; margin-top: 32px; font-size: 0.85rem; color: var(--muted);">
+          Powered by SuperMemo SM-2 Interval Calculation Engine: 
+          <code>EF' = max(1.3, EF + (0.1 - (3-q)·(0.08 + (3-q)·0.02)))</code>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         SCREEN 6: FREE ONLINE COURSES LIBRARY (Report Section 3.c.6 & 2.z)
+         9 Ready-Made Courses
+         ========================================================================== -->
+    <section class="view-section" id="view-free-online-courses">
+      <div class="library-container">
+        <div class="section-header">
+          <h1 class="section-title">Free Online Courses</h1>
+          <p class="section-desc">Explore 9 pre-built, production-grade courses curated by expert educators to test platform capabilities.</p>
+        </div>
+
+        <div class="free-courses-grid-9">
+          <!-- Course 1 -->
+          <div class="free-course-card">
+            <div class="course-card-banner banner-ai">🤖</div>
+            <div class="course-card-content">
+              <h3 class="course-card-title">Foundations of Artificial Intelligence</h3>
+              <p class="course-card-desc">History of AI, machine learning, neural networks, natural language processing, and ethics.</p>
+              <button class="btn-primary" onclick="window.tutorApp.viewCourseById('course_ai_foundations')">View Course</button>
+            </div>
+          </div>
+
+          <!-- Course 2 -->
+          <div class="free-course-card">
+            <div class="course-card-banner banner-ml">🧠</div>
+            <div class="course-card-content">
+              <h3 class="course-card-title">Introduction to Machine Learning</h3>
+              <p class="course-card-desc">Core principles, algorithms, and applied machine learning models to solve real-world problems.</p>
+              <button class="btn-primary" onclick="window.tutorApp.viewCourseById('course_ml_intro')">View Course</button>
+            </div>
+          </div>
+
+          <!-- Course 3 -->
+          <div class="free-course-card">
+            <div class="course-card-banner banner-ml">🌱</div>
+            <div class="course-card-content">
+              <h3 class="course-card-title">Fundamentals of Machine Learning for Beginners</h3>
+              <p class="course-card-desc">A gentle foundational gateway designed for non-technical learners with zero coding background.</p>
+              <button class="btn-primary" onclick="window.tutorApp.viewCourseById('course_ml_beginners')">View Course</button>
+            </div>
+          </div>
+
+          <!-- Course 4 -->
+          <div class="free-course-card">
+            <div class="course-card-banner banner-lang">🇫🇷</div>
+            <div class="course-card-content">
+              <h3 class="course-card-title">Intermediate French Grammar</h3>
+              <p class="course-card-desc">Grammatical structures, compound tenses, subjunctive moods, and conversational fluency.</p>
+              <button class="btn-primary" onclick="window.tutorApp.viewCourseById('course_french')">View Course</button>
+            </div>
+          </div>
+
+          <!-- Course 5 -->
+          <div class="free-course-card">
+            <div class="course-card-banner banner-prod">⚡</div>
+            <div class="course-card-content">
+              <h3 class="course-card-title">Productivity Mastery: Getting Things Done in the Digital Age</h3>
+              <p class="course-card-desc">Mastering time management, task triage, minimizing digital distractions, and deep work routines.</p>
+              <button class="btn-primary" onclick="window.tutorApp.viewCourseById('course_productivity')">View Course</button>
+            </div>
+          </div>
+
+          <!-- Course 6 -->
+          <div class="free-course-card">
+            <div class="course-card-banner banner-mind">🧘</div>
+            <div class="course-card-content">
+              <h3 class="course-card-title">Mindfulness and Stress Management for Professionals</h3>
+              <p class="course-card-desc">Cognitive grounding techniques, autonomic nervous regulation, and workplace resilience.</p>
+              <button class="btn-primary" onclick="window.tutorApp.viewCourseById('course_mindfulness')">View Course</button>
+            </div>
+          </div>
+
+          <!-- Course 7 -->
+          <div class="free-course-card">
+            <div class="course-card-banner banner-write">✍️</div>
+            <div class="course-card-content">
+              <h3 class="course-card-title">Creative Writing Workshop: Crafting Compelling Stories</h3>
+              <p class="course-card-desc">Character development, plot architecture, dramatic pacing, and resonant narrative techniques.</p>
+              <button class="btn-primary" onclick="window.tutorApp.viewCourseById('course_creative_writing')">View Course</button>
+            </div>
+          </div>
+
+          <!-- Course 8 -->
+          <div class="free-course-card">
+            <div class="course-card-banner banner-prod">🎤</div>
+            <div class="course-card-content">
+              <h3 class="course-card-title">Effective Public Speaking and Presentation Skills</h3>
+              <p class="course-card-desc">Rhetorical structures, confident vocal projection, slide storytelling, and engaging any audience.</p>
+              <button class="btn-primary" onclick="window.tutorApp.viewCourseById('course_public_speaking')">View Course</button>
+            </div>
+          </div>
+
+          <!-- Course 9 -->
+          <div class="free-course-card">
+            <div class="course-card-banner banner-mind">☀️</div>
+            <div class="course-card-content">
+              <h3 class="course-card-title">Principles of Happiness</h3>
+              <p class="course-card-desc">The psychology of eudaimonia, cognitive well-being habits, and evidence-based positive psychology.</p>
+              <button class="btn-primary" onclick="window.tutorApp.viewCourseById('course_happiness')">View Course</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         SCREEN 7: PRICING & PLANS (Report Section 2.h & Fig 1)
+         ========================================================================== -->
+    <section class="view-section" id="view-pricing">
+      <div class="pricing-container">
+        <h1 class="section-title">Transparent, Predictable Pricing</h1>
+        <p class="section-desc">Unlock unlimited bespoke courses, real-time AI tutoring, and spaced repetition flashcards.</p>
+
+        <div class="pricing-cards-grid-3">
+          <!-- Free Plan -->
+          <div class="pricing-card">
+            <div class="plan-name">Free Plan</div>
+            <div class="plan-price-box">
+              <div class="price-num">$0</div>
+              <span class="price-period">per month · no credit card</span>
+            </div>
+            <ul class="plan-features-list">
+              <li><span class="check-icon">✓</span> Limited course creation</li>
+              <li><span class="check-icon">✓</span> Homeworkify + AI Math Solver</li>
+              <li><span class="check-icon">✓</span> 9 pre-built free courses</li>
+              <li><span class="check-icon">✓</span> Standard community support</li>
+            </ul>
+            <button class="btn-secondary" data-choose-plan="free">Get Started</button>
+          </div>
+
+          <!-- Mentor Plan -->
+          <div class="pricing-card">
+            <div class="plan-name">Mentor Plan</div>
+            <div class="plan-price-box">
+              <div class="price-num">$13.33</div>
+              <span class="price-period">per month · billed annually</span>
+            </div>
+            <ul class="plan-features-list">
+              <li><span class="check-icon">✓</span> 100+ custom courses</li>
+              <li><span class="check-icon">✓</span> Unlimited chat with AI tutor</li>
+              <li><span class="check-icon">✓</span> Priority generation speed</li>
+              <li><span class="check-icon">✓</span> Cancel anytime</li>
+            </ul>
+            <button class="btn-primary" data-choose-plan="mentor">Choose Mentor</button>
+          </div>
+
+          <!-- Genius Plan (Featured) -->
+          <div class="pricing-card featured-card">
+            <div class="featured-pill-badge">Most Popular</div>
+            <div class="plan-name">Genius Plan</div>
+            <div class="plan-price-box">
+              <div class="price-num">$17.50</div>
+              <span class="price-period">per month · billed annually</span>
+            </div>
+            <ul class="plan-features-list">
+              <li><span class="check-icon">✓</span> 1,000+ custom courses</li>
+              <li><span class="check-icon">✓</span> Flashcards & Spaced Repetition</li>
+              <li><span class="check-icon">✓</span> Unlimited chat · Priority support</li>
+              <li><span class="check-icon">✓</span> RAG document course generation</li>
+            </ul>
+            <button class="btn-primary" data-choose-plan="genius">Choose Genius</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         SCREEN 8: HOMEWORKIFY & WRITING COACH (Report Section 2.e)
+         ========================================================================== -->
+    <section class="view-section" id="view-homeworkify">
+      <div class="homeworkify-container">
+        <div class="section-header">
+          <h1 class="section-title">Homeworkify & Writing Coach</h1>
+          <p class="section-desc">Free, instant pedagogical homework help and essay feedback across STEM and Humanities.</p>
+        </div>
+
+        <div class="coach-tabs">
+          <button class="coach-tab-btn active" onclick="document.getElementById('homeworkTabSec').style.display='block'; document.getElementById('writingTabSec').style.display='none'; this.classList.add('active'); this.nextElementSibling.classList.remove('active');">
+            Homework Solver
+          </button>
+          <button class="coach-tab-btn" onclick="document.getElementById('homeworkTabSec').style.display='none'; document.getElementById('writingTabSec').style.display='block'; this.classList.add('active'); this.previousElementSibling.classList.remove('active');">
+            Writing Coach
+          </button>
+        </div>
+
+        <!-- Homework Solver Section -->
+        <div id="homeworkTabSec">
+          <div style="background: #FFFFFF; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; margin-bottom: 24px;">
+            <label style="font-weight: 700; color: var(--navy); display: block; margin-bottom: 8px;">Enter your assignment question:</label>
+            <textarea id="homeworkQuestionInput" rows="4" style="width: 100%; padding: 12px; margin-bottom: 16px;" placeholder="Paste questions from science, history, literature, or math..."></textarea>
+            <div style="display: flex; justify-content: flex-end;">
+              <button class="btn-primary" id="btnSolveHomework">Get Step-by-Step Breakdown</button>
+            </div>
+          </div>
+          <div id="homeworkResultBox"></div>
+        </div>
+
+        <!-- Writing Coach Section -->
+        <div id="writingTabSec" style="display: none;">
+          <div style="background: #FFFFFF; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; margin-bottom: 24px;">
+            <label style="font-weight: 700; color: var(--navy); display: block; margin-bottom: 8px;">Paste your draft or paragraph:</label>
+            <textarea id="writingCoachInput" rows="6" style="width: 100%; padding: 12px; margin-bottom: 16px;" placeholder="Paste your essay, cover letter, or analytical thesis here..."></textarea>
+            <div style="display: flex; justify-content: flex-end;">
+              <button class="btn-primary" id="btnReviewWriting">Review Writing & Polish</button>
+            </div>
+          </div>
+          <div id="writingResultBox"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         SCREEN 9: LIBRARY (Report Section 3.b)
+         ========================================================================== -->
+    <section class="view-section" id="view-library">
+      <div class="library-container">
+        <div class="section-header">
+          <h1 class="section-title">My Learning Library</h1>
+          <p class="section-desc">Manage your bespoke AI courses, review progress milestones, and export curriculum archives.</p>
+        </div>
+
+        <div class="free-courses-grid-9" id="myCoursesGrid">
+          <!-- Populated from Realm DB -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         SCREEN 10: USER PROFILE (Report Section 3.b)
+         ========================================================================== -->
+    <section class="view-section" id="view-profile">
+      <div class="create-course-wrapper">
+        <div class="create-header">
+          <h1 id="profileUserName">Alex Morgan</h1>
+          <p id="profileUserEmail" style="color: var(--slate-light);">learner@tutorai.me</p>
+          <div style="margin-top: 12px;">
+            <span class="brand-badge" id="profileUserPlanBadge" style="font-size: 0.9rem; padding: 4px 14px;">GENIUS PLAN</span>
+          </div>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; margin-bottom: 24px;">
+          <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--navy); margin-bottom: 16px;">Learning Preferences & Metrics</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div style="background: #F8FAFC; padding: 14px; border-radius: 8px;">
+              <div style="font-size: 0.85rem; color: var(--muted); font-weight: 700;">COURSES GENERATED</div>
+              <div style="font-size: 1.8rem; font-weight: 800; color: var(--primary);" id="profileCoursesGenerated">3</div>
+            </div>
+            <div style="background: #F8FAFC; padding: 14px; border-radius: 8px;">
+              <div style="font-size: 0.85rem; color: var(--muted); font-weight: 700;">STORAGE ENGINE</div>
+              <div style="font-size: 1.1rem; font-weight: 800; color: var(--navy);">Realm DB Local</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px;">
+          <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--navy); margin-bottom: 14px;">Database Operations</h3>
+          <p style="color: var(--slate-light); font-size: 0.92rem; margin-bottom: 16px;">You can reset your local Realm database back to the pristine 9 pre-seeded courses from the report at any time.</p>
+          <button class="btn-secondary" id="btnResetData" style="color: #DC2626; border-color: #FECACA;">Reset Realm Database</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==========================================================================
+       MODALS & SLIDE-OUT DRAWERS
+       ========================================================================== -->
+
+  <!-- 1. Define Course Structure Modal (Page 5 & 13) -->
+  <div class="modal-backdrop" id="structureModal">
+    <div class="modal-dialog">
+      <button class="modal-close-btn">&times;</button>
+      <h2 style="font-size: 1.45rem; font-weight: 800; color: var(--navy); margin-bottom: 8px;">Customize Course Structure</h2>
+      <p style="font-size: 0.92rem; color: var(--slate-light); margin-bottom: 20px;">Review and modify modules and lesson titles before initiating full generation.</p>
+      
+      <div id="structureModulesTree"></div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
+        <button class="btn-secondary modal-cancel-btn">Cancel</button>
+        <button class="btn-primary" id="confirmStructureBuildBtn">Build Course</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. RAG: Use Your Own Sources Upload Modal (Page 5 & 12) -->
+  <div class="modal-backdrop" id="ragModal">
+    <div class="modal-dialog">
+      <button class="modal-close-btn">&times;</button>
+      <h2 style="font-size: 1.45rem; font-weight: 800; color: var(--navy); margin-bottom: 8px;">Upload Source Documents (RAG)</h2>
+      <p style="font-size: 0.92rem; color: var(--slate-light); margin-bottom: 20px;">The Curriculum Architect will strictly adhere to the terminology and lessons in your document.</p>
+
+      <div class="math-drop-zone" id="ragDropArea" style="margin-bottom: 16px;">
+        <div style="font-size: 2.2rem; color: var(--primary); margin-bottom: 8px;">📁</div>
+        <div style="font-weight: 700; color: var(--navy);">Click to select PDF, DOCX, TXT, or MD notes</div>
+        <div style="font-size: 0.85rem; color: var(--muted); margin-top: 4px;">Supports textbooks up to 50MB</div>
+        <input type="file" id="ragFileInput" accept=".pdf,.docx,.txt,.md,.json" style="display: none;">
+      </div>
+
+      <div id="ragFileNameDisplay" style="font-size: 0.9rem; color: var(--primary); font-weight: 600; margin-bottom: 20px; text-align: center;"></div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn-secondary modal-cancel-btn">Cancel</button>
+        <button class="btn-primary" id="startRagCourseBtn" disabled>Build Grounded Course</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Contextual AI Chat Drawer (In-Lesson Ask a Question) -->
+  <div class="chat-drawer" id="chatDrawer">
+    <div class="chat-drawer-header">
+      <div>
+        <h3 style="font-size: 1.05rem; font-weight: 800; color: var(--navy);">AI Personal Tutor</h3>
+        <span id="chatDrawerSubtitle" style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">Context: Lesson</span>
+      </div>
+      <button class="modal-close-btn" id="btnCloseChatDrawer" style="position: static; font-size: 1.2rem;">&times;</button>
+    </div>
+
+    <div class="chat-messages-scroll" id="chatMessagesScroll">
+      <div class="chat-msg bot">
+        Hello! I am your AI Tutor for this lesson. Ask me anything about the concepts, formulas, or real-world examples explained above!
+      </div>
+    </div>
+
+    <div class="chat-drawer-input">
+      <input type="text" id="chatInput" placeholder="Ask a question about this lesson...">
+      <button class="btn-primary" id="btnSendChatMessage" style="padding: 8px 16px;">Send</button>
+    </div>
+  </div>
+
+  <!-- 4. Video Explainer Modal -->
+  <div class="modal-backdrop" id="videoModal">
+    <div class="modal-dialog" style="max-width: 680px; text-align: center;">
+      <button class="modal-close-btn">&times;</button>
+      <h3 style="font-size: 1.3rem; font-weight: 800; color: var(--navy); margin-bottom: 16px;">Tutor AI Explained in 109 Seconds</h3>
+      <div style="background: #0F172A; border-radius: var(--radius-md); aspect-ratio: 16/9; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #FFFFFF; padding: 20px;">
+        <div style="font-size: 3.5rem; color: var(--primary); margin-bottom: 12px;">▶</div>
+        <div style="font-weight: 700; font-size: 1.1rem;">Automated Bespoke Curriculum Architecture</div>
+        <p style="color: #94A3B8; font-size: 0.88rem; margin-top: 8px;">Demonstrating Instant Course Creation, Go Deeper Tools, Photo Math, and SM-2 Spaced Repetition.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Sign In Modal -->
+  <div class="modal-backdrop" id="authModal">
+    <div class="modal-dialog" style="max-width: 440px; text-align: center;">
+      <button class="modal-close-btn">&times;</button>
+      <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--navy); margin-bottom: 8px;">Welcome to TutorAI</h2>
+      <p style="font-size: 0.9rem; color: var(--slate-light); margin-bottom: 24px;">Sign in to sync your bespoke courses and flashcards across devices.</p>
+
+      <button class="btn-secondary" style="width: 100%; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 10px;" onclick="document.getElementById('authModal').classList.remove('open'); window.tutorApp.showToast('Signed in with Google SSO');">
+        <span>🔍</span> Continue with Google
+      </button>
+      <button class="btn-secondary" style="width: 100%; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 10px;" onclick="document.getElementById('authModal').classList.remove('open'); window.tutorApp.showToast('Signed in with Lumination AI SSO');">
+        <span>🏢</span> Institutional SSO (SAML/Clerk)
+      </button>
+
+      <div style="font-size: 0.8rem; color: var(--muted);">By continuing, you agree to TutorAI's Terms and Privacy Policy.</div>
+    </div>
+  </div>
+
+  <!-- 6. Contact / Enterprise Modal -->
+  <div class="modal-backdrop" id="contactModal">
+    <div class="modal-dialog" style="max-width: 500px;">
+      <button class="modal-close-btn">&times;</button>
+      <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--navy); margin-bottom: 8px;">Contact TutorAI Solutions</h2>
+      <p style="font-size: 0.9rem; color: var(--slate-light); margin-bottom: 20px;">Inquire about AI for Educators, Corporate Training, or Whitelabel licensing.</p>
+      
+      <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+        <input type="text" placeholder="Your Name" style="padding: 10px 14px;">
+        <input type="email" placeholder="Work / University Email" style="padding: 10px 14px;">
+        <textarea rows="3" placeholder="Tell us about your team size and learning goals..." style="padding: 10px 14px;"></textarea>
+      </div>
+
+      <button class="btn-primary" style="width: 100%;" onclick="document.getElementById('contactModal').classList.remove('open'); window.tutorApp.showToast('Inquiry submitted! Our solutions team will contact you.');">Submit Inquiry</button>
+    </div>
+  </div>
+
+  <!-- Floating Toast Notifications -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ==========================================================================
+       SCRIPTS ARCHITECTURE
+       ========================================================================== -->
+  <!-- 1. Realm Schema Definitions -->
+  <script src="database/realm-schema.js"></script>
+  <!-- 2. Universal Local Realm DB Engine -->
+  <script src="database/realm-db.js"></script>
+  <!-- 3. AI Intelligence Engine (5 Prompts, SM-2, Math OCR, Homeworkify) -->
+  <script src="js/ai-engine.js"></script>
+  <!-- 4. Text-to-Speech Controller -->
+  <script src="js/speech.js"></script>
+  <!-- 5. Master Application Coordinator & Routing -->
+  <script src="js/app.js"></script>
+</body>
+</html>

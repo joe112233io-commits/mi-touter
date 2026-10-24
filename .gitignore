@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+jspm_packages/
+
+# Electron builder output
+dist/
+out/
+build/
+release/
+*.AppImage
+*.blockmap
+*.dmg
+*.exe
+*.msi
+*.deb
+*.rpm
+*.snap
+*.zip
+
+# Logs & diagnostics
+logs/
+*.log
+npm-debug.log*
+yarn-error.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Runtime local data (localStorage exports / Realm snapshots)
+*.realm
+.tutorai/
+.tutorai-data/
+
+# Editor & OS noise
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# Test & coverage
+coverage/
+.nyc_output/
