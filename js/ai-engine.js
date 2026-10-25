@@ -285,6 +285,50 @@ class TutorAIEngine {
     return res.lesson?.contentMarkdown || '';
   }
 
+  async analyzeCoursePlan({
+    topic = '',
+    sourceText = '',
+    targetModulesCount = 4,
+    targetLessonsPerModule = 4,
+    language = 'English',
+    providerId = null
+  }) {
+    const resp = await fetch('/api/ai/analyze-course-plan', {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        topic,
+        sourceText,
+        targetModulesCount,
+        targetLessonsPerModule,
+        language,
+        providerId: providerId || this.selectedProviderId
+      })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) {
+      throw new Error(data.error || 'Failed to analyze course plan.');
+    }
+    return data.plan;
+  }
+
+  async generateDiagnosticQuestions({ topic = '', language = 'English', providerId = null }) {
+    const resp = await fetch('/api/ai/diagnostic-questions', {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        topic,
+        language,
+        providerId: providerId || this.selectedProviderId
+      })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) {
+      throw new Error(data.error || 'Failed to generate diagnostic questions.');
+    }
+    return data.questions || [];
+  }
+
   // ==========================================================================
   // 3. Go Deeper Toolbar & Contextual Chat
   // ==========================================================================

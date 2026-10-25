@@ -27,15 +27,11 @@ class TutorAIApp {
     this.currentBlueprint = null;
     this.activeGenerationCourseId = null;
     this.pendingCreateTopic = '';
+    this.diagnosticAnswers = {};
     this.inlineOutlineModules = [
-      {
-        title: 'Module 1: Core Foundations & Principles',
-        lessons: ['Understanding the Fundamentals', 'Key Concepts & Terminology', 'Historical Context & Evolution']
-      },
-      {
-        title: 'Module 2: Practical Frameworks & Applications',
-        lessons: ['Step-by-Step Methodology', 'Real-World Case Studies', 'Common Pitfalls & Best Practices']
-      }
+      { title: 'Module 1', lessons: [] },
+      { title: 'Module 2', lessons: [] },
+      { title: 'Module 3', lessons: [] }
     ];
   }
 
@@ -383,7 +379,7 @@ class TutorAIApp {
       syncOwnSourcesToggle(!ownSourcesSwitch?.checked);
     });
 
-    // Inline source file upload
+    // Inline source file upload & AI Structure Extraction
     const btnTriggerInlineSourceFile = document.getElementById('btnTriggerInlineSourceFile');
     const inlineRagFileInput = document.getElementById('inlineRagFileInput');
     if (btnTriggerInlineSourceFile && inlineRagFileInput) {
@@ -400,7 +396,7 @@ class TutorAIApp {
           reader.onload = () => {
             const text = String(reader.result || '').slice(0, 15000);
             const txtArea = document.getElementById('inlineSourceTextarea');
-            if (txtArea && !txtArea.value.trim()) txtArea.value = text;
+            if (txtArea) txtArea.value = text;
             this.activeRagContext = {
               id: 'doc_' + Date.now(),
               fileName: file.name,
@@ -416,6 +412,18 @@ class TutorAIApp {
         }
       });
     }
+
+    document.getElementById('btnExtractStructureFromSource')?.addEventListener('click', async () => {
+      const sourceText = document.getElementById('inlineSourceTextarea')?.value.trim()
+        || this.activeRagContext?.extractedText
+        || '';
+      const topic = document.getElementById('createCourseInput')?.value.trim() || 'Uploaded Course Material';
+      if (!sourceText && !document.getElementById('createCourseInput')?.value.trim()) {
+        this.showToast('Please upload a document or paste source text first.');
+        return;
+      }
+      await this.handleAnalyzeCoursePlanWithAI({ topic, sourceText, openAllSections: true });
+    });
 
     // Toggle 2: Define course structure (Inline Switch + 6 Accordion Rows)
     const defineStructureSwitch = document.getElementById('toggleDefineStructureSwitch');
@@ -449,12 +457,80 @@ class TutorAIApp {
       subSwitch?.addEventListener('change', (e) => toggleAccItem(e.target.checked));
     });
 
-    // Course Outline Builder buttons (+ Add Module & Auto-Fill with AI)
+    // AI Magic Auto-Fill All 6 Structure Sections
+    document.getElementById('btnMagicFillAllStructure')?.addEventListener('click', async () => {
+      const topic = document.getElementById('createCourseInput')?.value.trim()
+        || document.getElementById('customCourseTitleInput')?.value.trim();
+      if (!topic) {
+        this.showToast('Please enter a topic in the top box first so AI can design your structure.');
+        document.getElementById('createCourseInput')?.focus();
+        return;
+      }
+      const sourceText = document.getElementById('inlineSourceTextarea')?.value.trim() || '';
+      await this.handleAnalyzeCoursePlanWithAI({ topic, sourceText, openAllSections: true });
+    });
+
+    // AI Suggest Course Title
+    document.getElementById('btnAiSuggestTitle')?.addEventListener('click', async () => {
+      const topic = document.getElementById('createCourseInput')?.value.trim() || 'Productivity Mastery';
+      const btn = document.getElementById('btnAiSuggestTitle');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳...'; }
+      try {
+        const plan = await window.tutorAIEngine.analyzeCoursePlan({ topic });
+        const titleInput = document.getElementById('customCourseTitleInput');
+        if (titleInput && plan.courseTitle) {
+          titleInput.value = plan.courseTitle;
+          this.openStructureSection('courseTitle');
+          this.showToast('AI suggested a course title!');
+        }
+      } catch (e) {
+        this.showToast(`Title suggestion notice: ${e.message}`);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '✨ Suggest'; }
+      }
+    });
+
+    // AI Suggest Learning Outcomes
+    document.getElementById('btnAiSuggestOutcomes')?.addEventListener('click', async () => {
+      const topic = document.getElementById('createCourseInput')?.value.trim()
+        || document.getElementById('customCourseTitleInput')?.value.trim()
+        || 'Productivity Mastery';
+      const btn = document.getElementById('btnAiSuggestOutcomes');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ Generating...'; }
+      try {
+        const plan = await window.tutorAIEngine.analyzeCoursePlan({ topic });
+        const outInput = document.getElementById('customLearningOutcomesInput');
+        if (outInput && plan.learningOutcomes) {
+          outInput.value = plan.learningOutcomes;
+          this.openStructureSection('learningOutcomes');
+          this.showToast('Learning outcomes generated with AI!');
+        }
+      } catch (e) {
+        this.showToast(`Outcomes generation notice: ${e.message}`);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '✨ Generate Learning Outcomes with AI'; }
+      }
+    });
+
+    // Quick Pedagogical Method Chips
+    document.querySelectorAll('.method-quick-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const methodText = chip.getAttribute('data-method') || '';
+        const area = document.getElementById('customInstructionalMethodsInput');
+        if (!area || !methodText) return;
+        const curr = area.value.trim();
+        if (!curr.includes(methodText)) {
+          area.value = curr ? `${curr}\n• ${methodText}` : `• ${methodText}`;
+        }
+      });
+    });
+
+    // Course Outline Builder buttons (+ Add Module & Auto-Fill Outline with AI)
     document.getElementById('btnAddInlineModule')?.addEventListener('click', () => {
       const nextNum = this.inlineOutlineModules.length + 1;
       this.inlineOutlineModules.push({
-        title: `Module ${nextNum}: Advanced Topic & Practice`,
-        lessons: [`Lesson ${nextNum}.1 Core Concepts`, `Lesson ${nextNum}.2 Practical Application`]
+        title: `Module ${nextNum}`,
+        lessons: []
       });
       this.renderInlineOutlineBuilder();
     });
@@ -471,29 +547,31 @@ class TutorAIApp {
       try {
         const modCount = parseInt(document.getElementById('customNumModulesInput')?.value || '4', 10);
         const lesCount = parseInt(document.getElementById('customLessonsPerModuleInput')?.value || '4', 10);
-        const outline = await window.tutorAIEngine.generateCourseStructure(topic, 'intermediate', 'mastery', this.activeRagContext, {
-          modulesCount: modCount,
-          lessonsPerModule: lesCount
+        const plan = await window.tutorAIEngine.analyzeCoursePlan({
+          topic,
+          targetModulesCount: modCount,
+          targetLessonsPerModule: lesCount
         });
-        if (Array.isArray(outline.modules) && outline.modules.length > 0) {
-          this.inlineOutlineModules = outline.modules.map(m => ({
-            title: m.title || m.moduleTitle || 'Module',
-            lessons: (m.lessons || []).map(l => typeof l === 'string' ? l : (l.title || l.lessonTitle || 'Lesson'))
+        if (plan && Array.isArray(plan.modules) && plan.modules.length > 0) {
+          this.inlineOutlineModules = plan.modules.map((m, idx) => ({
+            title: m.title || `Module ${idx + 1}`,
+            lessons: Array.isArray(m.lessons) ? m.lessons : []
           }));
           this.renderInlineOutlineBuilder();
-          this.showToast('Outline auto-populated with AI!');
+          this.openStructureSection('courseOutline');
+          this.showToast('Course Outline auto-populated with AI!');
         }
       } catch (e) {
         this.showToast(`Outline generation notice: ${e.message}`);
       } finally {
         if (btn) {
           btn.disabled = false;
-          btn.textContent = '✨ Auto-Fill with AI';
+          btn.textContent = '✨ Auto-Fill Outline with AI';
         }
       }
     });
 
-    // Bottom Upload Course Plan File button inside Define Course Structure
+    // Bottom Upload Course Plan File button inside Define Course Structure (Screenshot 53cc9c18.jpg)
     const btnUploadCoursePlanFile = document.getElementById('btnUploadCoursePlanFile');
     const coursePlanFileInput = document.getElementById('coursePlanFileInput');
     if (btnUploadCoursePlanFile && coursePlanFileInput) {
@@ -502,30 +580,27 @@ class TutorAIApp {
         if (e.target.files && e.target.files[0]) {
           const file = e.target.files[0];
           const reader = new FileReader();
-          reader.onload = () => {
-            const text = String(reader.result || '').slice(0, 12000);
-            const detailsArea = document.getElementById('customAdditionalDetailsInput');
-            const swDetails = document.getElementById('swAdditionalDetails');
-            const bodyDetails = document.getElementById('accBodyAdditionalDetails');
-            if (detailsArea) detailsArea.value = text;
-            if (swDetails) swDetails.checked = true;
-            if (bodyDetails) {
-              bodyDetails.style.display = 'block';
-              bodyDetails.closest('.structure-acc-item')?.classList.add('open');
-            }
+          reader.onload = async () => {
+            const text = String(reader.result || '').slice(0, 15000);
             const createInput = document.getElementById('createCourseInput');
+            const inferredTopic = createInput?.value.trim() || file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
             if (createInput && !createInput.value.trim()) {
-              createInput.value = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+              createInput.value = inferredTopic;
             }
+            btnUploadCoursePlanFile.textContent = `⏳ Analyzing ${file.name}...`;
+            await this.handleAnalyzeCoursePlanWithAI({
+              topic: inferredTopic,
+              sourceText: text,
+              openAllSections: true
+            });
             btnUploadCoursePlanFile.textContent = `✓ ${file.name}`;
-            this.showToast(`Course plan "${file.name}" imported into structure settings!`);
           };
           reader.readAsText(file);
         }
       });
     }
 
-    // Personalization Preference Modal Events
+    // Personalization Preference Modal Events & AI Diagnostic Quiz
     const persRadioYes = document.getElementById('persRadioYes');
     const persRadioNo = document.getElementById('persRadioNo');
     const persLabelYes = document.getElementById('persLabelYes');
@@ -540,6 +615,37 @@ class TutorAIApp {
     persRadioYes?.addEventListener('change', updatePersRadioUI);
     persRadioNo?.addEventListener('change', updatePersRadioUI);
 
+    document.getElementById('btnLoadDiagnosticQuiz')?.addEventListener('click', async () => {
+      const topic = this.pendingCreateTopic
+        || document.getElementById('createCourseInput')?.value.trim()
+        || 'this subject';
+      const box = document.getElementById('persDiagnosticQuestionsBox');
+      const btn = document.getElementById('btnLoadDiagnosticQuiz');
+      if (!box) return;
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ Loading...'; }
+      box.style.display = 'block';
+      box.innerHTML = `<div style="font-size: 0.8rem; color: var(--slate-light); padding: 6px;">Generating 3 tailored questions for "${this.escapeHtml(topic)}"...</div>`;
+      try {
+        const questions = await window.tutorAIEngine.generateDiagnosticQuestions({ topic });
+        this.diagnosticAnswers = {};
+        box.innerHTML = questions.map((q, qIdx) => `
+          <div class="pers-diag-q-card">
+            <div class="pers-diag-q-title">${qIdx + 1}. ${this.escapeHtml(q.question)}</div>
+            ${(q.options || []).map((opt, oIdx) => `
+              <label class="pers-diag-q-opt">
+                <input type="radio" name="pers_diag_${qIdx}" value="${this.escapeHtml(opt)}" ${oIdx === 0 ? 'checked' : ''}>
+                <span>${this.escapeHtml(opt)}</span>
+              </label>
+            `).join('')}
+          </div>
+        `).join('');
+      } catch (e) {
+        box.innerHTML = `<div style="font-size: 0.8rem; color: #DC2626;">Could not load diagnostic questions: ${this.escapeHtml(e.message)}</div>`;
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '✨ Refresh Quiz'; }
+      }
+    });
+
     document.getElementById('btnConfirmPersonalizationCreate')?.addEventListener('click', () => {
       const topic = this.pendingCreateTopic
         || document.getElementById('createCourseInput')?.value.trim()
@@ -548,7 +654,7 @@ class TutorAIApp {
       this.executeCourseCreation(topic);
     });
 
-    // Course Overview <-> Lesson Study View switchers
+    // Course Overview <-> Lesson Study View switchers & Overview Batch Actions
     document.getElementById('btnBackToCourseOverview')?.addEventListener('click', () => {
       this.setCourseViewMode('overview');
     });
@@ -557,6 +663,12 @@ class TutorAIApp {
     });
     document.getElementById('btnResumeLessonFromOverview')?.addEventListener('click', () => {
       this.setCourseViewMode('lesson');
+    });
+    document.getElementById('btnExportCurrentCourse')?.addEventListener('click', () => {
+      if (this.currentCourseId) this.exportCourse(this.currentCourseId);
+    });
+    document.getElementById('btnGenerateAllCourseLessons')?.addEventListener('click', () => {
+      this.generateAllRemainingLessonsForCurrentCourse();
     });
 
     // 4 Horizontal Lesson Tabs (Content | Simplify | Quiz | Examples)
@@ -581,9 +693,20 @@ class TutorAIApp {
       }
     });
 
-    // Key Takeaways circular button (☍)
+    // Lesson Action Buttons: Bookmark (⚑), Key Takeaways (☍), Edit Lesson, Regenerate Lesson
+    document.getElementById('btnBookmarkLesson')?.addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      btn.classList.toggle('active');
+      this.showToast(btn.classList.contains('active') ? '⚑ Lesson bookmarked to your study list.' : 'Bookmark removed.');
+    });
     document.getElementById('btnKeyTakeaways')?.addEventListener('click', () => {
       this.renderKeyTakeawaysCard();
+    });
+    document.getElementById('btnEditCurrentLesson')?.addEventListener('click', () => {
+      this.openInlineLessonEditor();
+    });
+    document.getElementById('btnRegenerateCurrentLesson')?.addEventListener('click', () => {
+      this.regenerateCurrentLessonWithAI();
     });
 
     // Bottom Lesson Navigation (< Previous | Mark as Complete | Next >)
@@ -1238,32 +1361,110 @@ class TutorAIApp {
   // ==========================================================================
   // 5. Course Creation Pipeline (Topic, RAG Sources, 6 Structure Accordions & Personalization Modal)
   // ==========================================================================
+  openStructureSection(accKey) {
+    const defineStructureSwitch = document.getElementById('toggleDefineStructureSwitch');
+    const defineStructurePanel = document.getElementById('inlineDefineStructurePanel');
+    if (defineStructureSwitch && !defineStructureSwitch.checked) {
+      defineStructureSwitch.checked = true;
+      if (defineStructurePanel) defineStructurePanel.style.display = 'flex';
+    }
+    const item = document.querySelector(`.structure-acc-item[data-acc-key="${accKey}"]`);
+    if (item) {
+      item.classList.add('open');
+      const body = item.querySelector('.structure-acc-body');
+      const sw = item.querySelector('.structure-sub-switch');
+      if (body) body.style.display = 'block';
+      if (sw) sw.checked = true;
+    }
+  }
+
+  async handleAnalyzeCoursePlanWithAI({ topic = '', sourceText = '', openAllSections = true }) {
+    const magicBtn = document.getElementById('btnMagicFillAllStructure');
+    const extractBtn = document.getElementById('btnExtractStructureFromSource');
+    if (magicBtn) { magicBtn.disabled = true; magicBtn.textContent = '⏳ AI Designing Structure...'; }
+    if (extractBtn) { extractBtn.disabled = true; extractBtn.textContent = '⏳ Extracting Structure...'; }
+
+    try {
+      const modCount = parseInt(document.getElementById('customNumModulesInput')?.value || '4', 10);
+      const lesCount = parseInt(document.getElementById('customLessonsPerModuleInput')?.value || '4', 10);
+      const langSel = document.getElementById('createCourseLangSelect')?.value || 'Auto-Detect';
+      const language = langSel === 'Auto-Detect'
+        ? (/[\u0600-\u06FF]/.test(topic || sourceText) ? 'Arabic' : 'English')
+        : langSel;
+
+      const plan = await window.tutorAIEngine.analyzeCoursePlan({
+        topic,
+        sourceText,
+        targetModulesCount: modCount,
+        targetLessonsPerModule: lesCount,
+        language
+      });
+
+      if (plan) {
+        const titleInput = document.getElementById('customCourseTitleInput');
+        const outInput = document.getElementById('customLearningOutcomesInput');
+        const numModInput = document.getElementById('customNumModulesInput');
+        const numLesInput = document.getElementById('customLessonsPerModuleInput');
+        const methodsInput = document.getElementById('customInstructionalMethodsInput');
+        const detailsInput = document.getElementById('customAdditionalDetailsInput');
+
+        if (titleInput && plan.courseTitle) titleInput.value = plan.courseTitle;
+        if (outInput && plan.learningOutcomes) outInput.value = plan.learningOutcomes;
+        if (numModInput && plan.modulesCount) numModInput.value = plan.modulesCount;
+        if (numLesInput && plan.lessonsPerModule) numLesInput.value = plan.lessonsPerModule;
+        if (methodsInput && plan.instructionalMethods) methodsInput.value = plan.instructionalMethods;
+        if (detailsInput && plan.additionalDetails) detailsInput.value = plan.additionalDetails;
+
+        if (Array.isArray(plan.modules) && plan.modules.length > 0) {
+          this.inlineOutlineModules = plan.modules.map((m, idx) => ({
+            title: m.title || `Module ${idx + 1}`,
+            lessons: Array.isArray(m.lessons) ? m.lessons : []
+          }));
+          this.renderInlineOutlineBuilder();
+        }
+
+        if (openAllSections) {
+          ['courseTitle', 'learningOutcomes', 'courseSize', 'courseOutline', 'instructionalMethods', 'additionalDetails'].forEach(k => {
+            this.openStructureSection(k);
+          });
+        }
+        this.showToast('✨ Course structure & syllabus auto-populated with AI!');
+      }
+    } catch (err) {
+      this.showToast(`Structure analysis error: ${err.message}`);
+    } finally {
+      if (magicBtn) { magicBtn.disabled = false; magicBtn.textContent = '✨ Auto-Fill All with AI'; }
+      if (extractBtn) { extractBtn.disabled = false; extractBtn.textContent = '✨ Extract Course Structure with AI'; }
+    }
+  }
+
   renderInlineOutlineBuilder() {
     const container = document.getElementById('inlineOutlineModulesContainer');
     if (!container) return;
 
+    // Exact layout matching Screenshot aacaced2.jpg:
+    // Each module card has: [Module Input] [+ Add Lesson] [−]
+    // Below header: nested lesson inputs (if any)
     container.innerHTML = this.inlineOutlineModules.map((mod, mIdx) => `
       <div class="inline-module-card" data-mod-index="${mIdx}">
         <div class="inline-module-header">
-          <span class="inline-module-badge">Module ${mIdx + 1}</span>
-          <input type="text" class="inline-mod-title-input" data-mod-index="${mIdx}" value="${this.escapeHtml(mod.title)}" placeholder="Enter module title">
+          <input type="text" class="inline-mod-title-input" data-mod-index="${mIdx}" value="${this.escapeHtml(mod.title)}" placeholder="Module ${mIdx + 1}">
+          <button type="button" class="btn-add-inline-lesson" data-mod-index="${mIdx}">+ Add Lesson</button>
           ${this.inlineOutlineModules.length > 1
             ? `<button type="button" class="btn-remove-inline-item btn-remove-inline-mod" data-mod-index="${mIdx}" title="Remove Module">−</button>`
-            : ''
+            : `<button type="button" class="btn-remove-inline-item btn-remove-inline-mod" data-mod-index="${mIdx}" title="Clear Module">−</button>`
           }
         </div>
-        <div class="inline-lessons-list">
-          ${(mod.lessons || []).map((lesTitle, lIdx) => `
-            <div class="inline-lesson-row">
-              <input type="text" class="inline-les-title-input" data-mod-index="${mIdx}" data-les-index="${lIdx}" value="${this.escapeHtml(lesTitle)}" placeholder="Enter lesson title">
-              ${mod.lessons.length > 1
-                ? `<button type="button" class="btn-remove-inline-item btn-remove-inline-les" data-mod-index="${mIdx}" data-les-index="${lIdx}" title="Remove Lesson">×</button>`
-                : ''
-              }
-            </div>
-          `).join('')}
-        </div>
-        <button type="button" class="btn-add-inline-lesson" data-mod-index="${mIdx}">+ Add Lesson</button>
+        ${(mod.lessons && mod.lessons.length > 0) ? `
+          <div class="inline-lessons-list">
+            ${mod.lessons.map((lesTitle, lIdx) => `
+              <div class="inline-lesson-row">
+                <input type="text" class="inline-les-title-input" data-mod-index="${mIdx}" data-les-index="${lIdx}" value="${this.escapeHtml(lesTitle)}" placeholder="Lesson ${mIdx + 1}.${lIdx + 1} title">
+                <button type="button" class="btn-remove-inline-item btn-remove-inline-les" data-mod-index="${mIdx}" data-les-index="${lIdx}" title="Remove Lesson">−</button>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
       </div>
     `).join('');
 
@@ -1290,7 +1491,10 @@ class TutorAIApp {
       btn.addEventListener('click', () => {
         const mIdx = parseInt(btn.getAttribute('data-mod-index'), 10);
         if (this.inlineOutlineModules[mIdx]) {
-          const nextLesIdx = (this.inlineOutlineModules[mIdx].lessons?.length || 0) + 1;
+          if (!Array.isArray(this.inlineOutlineModules[mIdx].lessons)) {
+            this.inlineOutlineModules[mIdx].lessons = [];
+          }
+          const nextLesIdx = this.inlineOutlineModules[mIdx].lessons.length + 1;
           this.inlineOutlineModules[mIdx].lessons.push(`Lesson ${mIdx + 1}.${nextLesIdx}`);
           this.renderInlineOutlineBuilder();
         }
@@ -1302,8 +1506,10 @@ class TutorAIApp {
         const mIdx = parseInt(btn.getAttribute('data-mod-index'), 10);
         if (this.inlineOutlineModules.length > 1) {
           this.inlineOutlineModules.splice(mIdx, 1);
-          this.renderInlineOutlineBuilder();
+        } else {
+          this.inlineOutlineModules[0] = { title: 'Module 1', lessons: [] };
         }
+        this.renderInlineOutlineBuilder();
       });
     });
 
@@ -1311,7 +1517,7 @@ class TutorAIApp {
       btn.addEventListener('click', () => {
         const mIdx = parseInt(btn.getAttribute('data-mod-index'), 10);
         const lIdx = parseInt(btn.getAttribute('data-les-index'), 10);
-        if (this.inlineOutlineModules[mIdx] && this.inlineOutlineModules[mIdx].lessons.length > 1) {
+        if (this.inlineOutlineModules[mIdx] && Array.isArray(this.inlineOutlineModules[mIdx].lessons)) {
           this.inlineOutlineModules[mIdx].lessons.splice(lIdx, 1);
           this.renderInlineOutlineBuilder();
         }
@@ -1324,7 +1530,12 @@ class TutorAIApp {
     const modal = document.getElementById('personalizationModal');
     const genStatus = document.getElementById('persGeneratingStatus');
     const createNowBtn = document.getElementById('btnConfirmPersonalizationCreate');
+    const diagBox = document.getElementById('persDiagnosticQuestionsBox');
     if (genStatus) genStatus.style.display = 'none';
+    if (diagBox) {
+      diagBox.style.display = 'none';
+      diagBox.innerHTML = '';
+    }
     if (createNowBtn) {
       createNowBtn.disabled = false;
       createNowBtn.textContent = 'Create Now';
@@ -1364,9 +1575,15 @@ class TutorAIApp {
     const lessonsPerModule = (defineStructure && swSize)
       ? Math.max(1, Math.min(10, parseInt(document.getElementById('customLessonsPerModuleInput')?.value || '4', 10)))
       : 4;
-    const customOutlineModules = (defineStructure && swOutline && this.inlineOutlineModules.length > 0)
+
+    // Only pass customOutlineModules if user enabled Course Outline AND modified/added meaningful titles
+    const hasMeaningfulOutline = this.inlineOutlineModules.some(m =>
+      (m.title && !/^Module\s+\d+$/i.test(m.title.trim())) || (Array.isArray(m.lessons) && m.lessons.length > 0)
+    );
+    const customOutlineModules = (defineStructure && swOutline && hasMeaningfulOutline)
       ? this.inlineOutlineModules
       : null;
+
     const allowAdditionalModules = Boolean(document.getElementById('toggleAllowAdditionalModules')?.checked);
     const instructionalMethods = (defineStructure && swMethods)
       ? (document.getElementById('customInstructionalMethodsInput')?.value.trim() || '')
@@ -1375,10 +1592,13 @@ class TutorAIApp {
       ? (document.getElementById('customAdditionalDetailsInput')?.value.trim() || '')
       : '';
 
+    const langSelectVal = document.getElementById('createCourseLangSelect')?.value || 'Auto-Detect';
+    const difficultySelectVal = document.getElementById('createCourseDifficultySelect')?.value || '';
+
     const personalized = Boolean(document.getElementById('persRadioYes')?.checked);
     const learnerLevel = personalized
       ? (document.getElementById('persLearnerLevelSelect')?.value || 'intermediate')
-      : (this.currentUser?.knowledgeLevelPref || 'intermediate');
+      : (difficultySelectVal ? difficultySelectVal.toLowerCase() : (this.currentUser?.knowledgeLevelPref || 'intermediate'));
     const learningStyle = personalized
       ? (document.getElementById('persLearningStyleSelect')?.value || 'Practical & Examples')
       : 'Practical & Examples';
@@ -1386,16 +1606,23 @@ class TutorAIApp {
       ? (document.getElementById('persGoalInput')?.value.trim() || '')
       : '';
 
+    // Collect any selected AI diagnostic quiz answers
+    const diagPicked = [];
+    document.querySelectorAll('#persDiagnosticQuestionsBox input[type="radio"]:checked').forEach(r => {
+      if (r.value) diagPicked.push(r.value);
+    });
+    const diagnosticSummary = diagPicked.length > 0 ? `Learner Diagnostic Profile: ${diagPicked.join(' | ')}` : '';
+
     return {
       ragText,
       customTitle,
-      learningOutcomes: [learningOutcomes, persGoal].filter(Boolean).join(' — '),
+      learningOutcomes: [learningOutcomes, persGoal, diagnosticSummary].filter(Boolean).join(' — '),
       modulesCount,
       lessonsPerModule,
       customOutlineModules,
       allowAdditionalModules,
       instructionalMethods,
-      additionalDetails,
+      additionalDetails: [additionalDetails, langSelectVal !== 'Auto-Detect' ? `Course Language: ${langSelectVal}` : ''].filter(Boolean).join('\n'),
       personalized,
       learnerLevel,
       learningStyle
@@ -1419,6 +1646,8 @@ class TutorAIApp {
     const submitBtn = document.getElementById('submitCreateCourseBtn');
     const createNowBtn = document.getElementById('btnConfirmPersonalizationCreate');
     const genStatus = document.getElementById('persGeneratingStatus');
+    const genText = document.getElementById('persGeneratingText');
+    const genBar = document.getElementById('persGeneratingProgressBar');
     const origText = submitBtn ? submitBtn.innerHTML : '<span class="create-btn-icon">📖</span><span>Create Course</span>';
 
     if (submitBtn) {
@@ -1432,9 +1661,16 @@ class TutorAIApp {
     if (genStatus) {
       genStatus.style.display = 'flex';
     }
+    if (genText) genText.textContent = 'Step 1/3: Designing curriculum & modules...';
+    if (genBar) genBar.style.width = '30%';
 
     const extraOpts = this.collectCreateCourseOptions();
     this.showToast(`AI Engine: Designing curriculum for "${extraOpts.customTitle || cleanTopic}"...`);
+
+    const progressTimer = setTimeout(() => {
+      if (genText) genText.textContent = 'Step 2/3: Synthesizing Lesson 1.1 sub-sections, quiz & examples...';
+      if (genBar) genBar.style.width = '72%';
+    }, 1400);
 
     try {
       const structure = customStructure || await window.tutorAIEngine.generateCourseStructure(
@@ -1444,6 +1680,10 @@ class TutorAIApp {
         ragContext || this.activeRagContext,
         extraOpts
       );
+
+      clearTimeout(progressTimer);
+      if (genText) genText.textContent = 'Step 3/3: Finalizing interactive study workspace...';
+      if (genBar) genBar.style.width = '100%';
 
       // Persist new Course, Modules, and Lessons into Realm DB
       const courseId = 'course_' + Math.random().toString(36).substr(2, 8);
@@ -1558,6 +1798,7 @@ class TutorAIApp {
       this.showToast(`Course "${newCourseObj?.title || cleanTopic}" created!`);
       this.navigateTo('course');
     } catch (err) {
+      clearTimeout(progressTimer);
       this.showToast(`Course generation error: ${err.message}`);
     } finally {
       if (submitBtn) {
@@ -1861,20 +2102,35 @@ class TutorAIApp {
         accordionContainer.appendChild(groupEl);
       }
 
-      // Populate Right Slide-Over Course Outline Drawer (Screenshot b521c888.jpg)
+      // Populate Right Slide-Over Course Outline Drawer (Matches Screenshot b521c888.jpg)
       if (slideOverList) {
+        const slideCourseTitleEl = document.getElementById('slideOverCourseTitle');
+        const slideCourseBadgeEl = document.getElementById('slideOverCourseBadge');
+        const isPers = String(course.learningGoal || '').toLowerCase().includes('personalized');
+        if (slideCourseTitleEl) slideCourseTitleEl.textContent = course.title;
+        if (slideCourseBadgeEl) {
+          slideCourseBadgeEl.textContent = isPers ? 'Personalized' : 'Generic';
+          slideCourseBadgeEl.classList.toggle('personalized', isPers);
+        }
+
         const modBlock = document.createElement('div');
         modBlock.className = 'slideover-mod-block';
-        const cleanModTitle = String(mod.title || '').replace(/^(Module\s+\d+[:.-]?\s*)/i, '');
+        const cleanModTitle = String(mod.title || '').replace(/^(Module\s+\d+[:.-]?\s*|\d+\.\s*)/i, '');
         modBlock.innerHTML = `
-          <div class="slideover-mod-title">Module ${modIdx + 1}: ${this.escapeHtml(cleanModTitle)}</div>
+          <div class="slideover-mod-title">
+            <span style="color: var(--primary);">▾</span>
+            <span>${modIdx + 1}. ${this.escapeHtml(cleanModTitle)}</span>
+          </div>
           ${lessons.map((les, lesIdx) => {
             const isActive = les.id === this.currentLessonId;
             const displayTitle = /^\d+\.\d+/.test(les.title.trim()) ? les.title : `${modIdx + 1}.${lesIdx + 1} ${les.title}`;
             return `
               <div class="slideover-lesson-item ${isActive ? 'active' : ''}" data-slide-lesson-id="${les.id}">
-                <span>${this.escapeHtml(displayTitle)}</span>
-                ${les.isCompleted ? '<span class="slideover-check">✓</span>' : ''}
+                <span style="display: flex; align-items: center; gap: 8px;">
+                  <span style="opacity: 0.7; font-size: 0.85rem;">📄</span>
+                  <span>${this.escapeHtml(displayTitle)}</span>
+                </span>
+                ${(les.isCompleted || isActive) ? '<span class="slideover-check">✓</span>' : ''}
               </div>
             `;
           }).join('')}
@@ -1902,6 +2158,117 @@ class TutorAIApp {
     if (this.currentLessonId) {
       this.loadLesson(this.currentLessonId, false);
     }
+  }
+
+  async generateAllRemainingLessonsForCurrentCourse() {
+    const course = window.realmDB.objects('Course').find(c => c.id === this.currentCourseId);
+    if (!course) return;
+    const ordered = this.getOrderedCourseLessons(course.id);
+    const pending = ordered.filter(item => !item.lesson.contentMarkdown);
+    if (pending.length === 0) {
+      this.showToast('✓ All lessons in this course are already generated and ready!');
+      return;
+    }
+
+    const btn = document.getElementById('btnGenerateAllCourseLessons');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = `⏳ Generating (0/${pending.length})...`;
+    }
+
+    let completedCount = 0;
+    for (const item of pending) {
+      try {
+        if (btn) btn.textContent = `⏳ Generating (${completedCount + 1}/${pending.length}): ${item.lesson.title.slice(0, 22)}...`;
+        const res = await window.tutorAIEngine.generateLessonPackage({
+          courseTitle: course.title,
+          moduleTitle: item.module.title,
+          lessonTitle: item.lesson.title,
+          learnerLevel: course.learnerLevel || 'intermediate',
+          language: course.language || '',
+          moduleIndex: item.modNumber,
+          lessonIndex: item.lesNumber
+        });
+        const pkg = res.lesson || {};
+        window.realmDB.write(() => {
+          item.lesson.contentMarkdown = pkg.contentMarkdown || '';
+          if (pkg.simplifiedMarkdown) item.lesson.simplifiedMarkdown = pkg.simplifiedMarkdown;
+          if (pkg.examplesMarkdown) item.lesson.examplesMarkdown = pkg.examplesMarkdown;
+          item.lesson.generationStatus = 'completed';
+
+          if (Array.isArray(pkg.quizQuestions) && pkg.quizQuestions.length > 0) {
+            const existingQ = window.realmDB.objects('LessonQuiz').find(q => q.lessonId === item.lesson.id);
+            if (!existingQ) {
+              window.realmDB.create('LessonQuiz', {
+                id: 'quiz_' + item.lesson.id,
+                lessonId: item.lesson.id,
+                questionsJson: JSON.stringify(pkg.quizQuestions),
+                userScore: null,
+                completedAt: null
+              });
+            }
+          }
+        });
+        completedCount++;
+      } catch (e) {
+        console.warn('Batch lesson generation error:', e.message);
+      }
+    }
+
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '✓ All Lessons Ready';
+    }
+    this.showToast(`✓ Generated ${completedCount} lessons across all modules!`);
+    this.renderCourseOverviewScreen();
+  }
+
+  openInlineLessonEditor() {
+    const lesson = window.realmDB.objects('Lesson').find(l => l.id === this.currentLessonId);
+    const bodyEl = document.getElementById('lessonBodyMarkdown');
+    if (!lesson || !bodyEl) return;
+
+    this.switchLessonTab('content');
+    bodyEl.innerHTML = `
+      <div style="background: #FFFFFF; border: 1.5px solid var(--primary); border-radius: 16px; padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="color: var(--navy); font-weight: 800; font-size: 1.05rem;">✏️ Editing Lesson: ${this.escapeHtml(lesson.title)}</h3>
+          <span style="font-size: 0.8rem; color: var(--slate-light);">Supports Markdown & ### Sub-section headings</span>
+        </div>
+        <textarea id="inlineLessonEditorTextarea" rows="16" style="width: 100%; padding: 14px; font-family: monospace; font-size: 0.9rem; line-height: 1.6; border: 1px solid #CBD5E1; border-radius: 10px; margin-bottom: 14px;">${this.escapeHtml(lesson.contentMarkdown || '')}</textarea>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn-secondary" id="btnCancelInlineLessonEdit">Cancel</button>
+          <button type="button" class="btn-primary" id="btnSaveInlineLessonEdit">💾 Save Changes</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('btnCancelInlineLessonEdit')?.addEventListener('click', () => {
+      this.loadLesson(lesson.id, false);
+    });
+    document.getElementById('btnSaveInlineLessonEdit')?.addEventListener('click', () => {
+      const updated = document.getElementById('inlineLessonEditorTextarea')?.value || '';
+      window.realmDB.write(() => {
+        lesson.contentMarkdown = updated;
+      });
+      if (window.firebaseBridge && window.firebaseBridge.currentUser) {
+        window.firebaseBridge.syncLessonUpdate(lesson, this.currentCourseId).catch(console.error);
+      }
+      this.showToast('✓ Lesson content saved!');
+      this.loadLesson(lesson.id, false);
+    });
+  }
+
+  async regenerateCurrentLessonWithAI() {
+    const lesson = window.realmDB.objects('Lesson').find(l => l.id === this.currentLessonId);
+    if (!lesson) return;
+    window.realmDB.write(() => {
+      lesson.contentMarkdown = '';
+      lesson.simplifiedMarkdown = null;
+      lesson.examplesMarkdown = null;
+    });
+    this.showToast(`🔄 Regenerating "${lesson.title}" with AI...`);
+    await this.loadLesson(lesson.id, false);
   }
 
   getOrderedCourseLessons(courseId) {
@@ -1956,7 +2323,7 @@ class TutorAIApp {
     const modIndex = moduleObj?.orderIndex || 1;
     const lesIndex = lesson.orderIndex || 1;
 
-    // Update Lesson Header & Title (Matching Screenshot 81e66467.jpg)
+    // Update Lesson Header & Title (Matching Screenshot 4721c5a4.jpg & 81e66467.jpg)
     const tagEl = document.getElementById('lessonModuleTag');
     const titleEl = document.getElementById('lessonTitleMain');
     const bodyEl = document.getElementById('lessonBodyMarkdown');
@@ -2062,7 +2429,6 @@ class TutorAIApp {
         sections.push({ title: rawHeading, bodyMd: introBuffer ? `${introBuffer}\n\n${bodyMd}` : bodyMd });
         introBuffer = '';
       } else {
-        // Introductory text before the first heading
         const cleanIntro = part.replace(/^#\s+[^\n]+\n?/, '').trim();
         if (cleanIntro) introBuffer = cleanIntro;
       }
@@ -2071,26 +2437,28 @@ class TutorAIApp {
     if (sections.length === 0) {
       return `<div class="subsection-accordion-card open">
         <button type="button" class="subsection-acc-header">
-          <span class="subsection-acc-title">${modIdx}.${lesIdx}.1 Lesson Overview & Core Concepts</span>
-          <span class="subsection-acc-chevron">⌃</span>
+          <span class="subsection-acc-title">${modIdx}.${lesIdx}.1 Introduction & Core Overview</span>
+          <span class="subsection-acc-chevron">⌄</span>
         </button>
         <div class="subsection-acc-body">${this.renderMarkdown(src)}</div>
       </div>`;
     }
 
+    // Matches Screenshot 4721c5a4.jpg: 1.1.1 Introduction starts open with Coral title; others can be toggled!
     return `<div class="subsection-cards-stack">` + sections.map((sec, idx) => {
       const subNum = `${modIdx}.${lesIdx}.${idx + 1}`;
       const hasNumPrefix = /^\d+\.\d+\.\d+/.test(sec.title);
       const cleanTitle = sec.title.replace(/^\d+\.\s*/, '');
       const finalTitle = hasNumPrefix ? sec.title : `${subNum} ${cleanTitle}`;
+      const isOpenByDefault = idx === 0;
 
       return `
-        <div class="subsection-accordion-card open">
+        <div class="subsection-accordion-card ${isOpenByDefault ? 'open' : ''}">
           <button type="button" class="subsection-acc-header">
             <span class="subsection-acc-title">${this.escapeHtml(finalTitle)}</span>
             <span class="subsection-acc-chevron">⌄</span>
           </button>
-          <div class="subsection-acc-body">
+          <div class="subsection-acc-body" style="${isOpenByDefault ? 'display: block;' : 'display: none;'}">
             ${this.renderMarkdown(sec.bodyMd)}
           </div>
         </div>
@@ -2100,6 +2468,10 @@ class TutorAIApp {
 
   bindSubsectionAccordions(container) {
     if (!container) return;
+    this.allSubsectionsExpanded = false;
+    const toggleBtn = document.getElementById('btnToggleAllSubsections');
+    if (toggleBtn) toggleBtn.textContent = '↕ Expand All';
+
     container.querySelectorAll('.subsection-accordion-card').forEach(card => {
       const header = card.querySelector('.subsection-acc-header');
       const body = card.querySelector('.subsection-acc-body');

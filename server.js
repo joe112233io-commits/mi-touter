@@ -1942,6 +1942,206 @@ Return ONLY a valid JSON object:
   }
 });
 
+// ============================================================================
+// AI Course Structure & Uploaded Plan Analyzer (/api/ai/analyze-course-plan)
+// ============================================================================
+app.post('/api/ai/analyze-course-plan', async (req, res) => {
+  const userId = getAuthenticatedUserId(req);
+  const {
+    topic = '',
+    sourceText = '',
+    targetModulesCount = 4,
+    targetLessonsPerModule = 4,
+    language = 'English',
+    providerId = null
+  } = req.body || {};
+
+  const cleanTopic = String(topic || '').trim() || (sourceText ? String(sourceText).trim().split('\n')[0].slice(0, 80) : 'Productivity Mastery');
+  const modCount = Math.min(Math.max(Number(targetModulesCount) || 4, 1), 12);
+  const lesCount = Math.min(Math.max(Number(targetLessonsPerModule) || 4, 1), 10);
+
+  let providerConfig = null;
+  try {
+    providerConfig = resolveProviderConfig(userId, providerId);
+  } catch (_) {
+    providerConfig = null;
+  }
+
+  const prompt = `Analyze the following course topic and optional uploaded course plan/source document, and generate a comprehensive, well-structured course plan in ${language}.
+Topic: "${cleanTopic}"
+Target Modules: ${modCount}
+Target Lessons per Module: ${lesCount}
+${sourceText ? `\nUploaded Course Plan / Reference Material:\n"""\n${String(sourceText).slice(0, 12000)}\n"""\n` : ''}
+
+Return ONLY a valid JSON object matching this exact schema:
+{
+  "courseTitle": "Compelling, professional course title",
+  "learningOutcomes": "• Outcome 1\\n• Outcome 2\\n• Outcome 3\\n• Outcome 4",
+  "modulesCount": ${modCount},
+  "lessonsPerModule": ${lesCount},
+  "modules": [
+    {
+      "title": "Module 1 Title (without 'Module 1:' prefix)",
+      "lessons": [
+        "Lesson 1 Title (without '1.1' prefix)",
+        "Lesson 2 Title"
+      ]
+    }
+  ],
+  "instructionalMethods": "Specific pedagogical methods tailored to this course (e.g., Socratic inquiry, worked real-world case studies, progressive hands-on exercises, and formative quizzes).",
+  "additionalDetails": "Recommended prerequisites, target audience profile, and practical study tips."
+}`;
+
+  if (providerConfig) {
+    try {
+      const raw = await executeAIRequest(providerConfig, {
+        systemInstruction: 'You are an expert Curriculum Architect. Output strictly valid JSON matching the requested schema.',
+        prompt,
+        expectJson: true,
+        temperature: 0.5
+      });
+      const parsed = extractAndParseJson(raw);
+      if (parsed && Array.isArray(parsed.modules) && parsed.modules.length > 0) {
+        return res.json({
+          ok: true,
+          plan: {
+            courseTitle: String(parsed.courseTitle || `${cleanTopic}: Complete Mastery Course`).trim(),
+            learningOutcomes: Array.isArray(parsed.learningOutcomes)
+              ? parsed.learningOutcomes.map(o => `• ${String(o).replace(/^[•\-*]\s*/, '')}`).join('\n')
+              : String(parsed.learningOutcomes || '').trim(),
+            modulesCount: parsed.modules.length,
+            lessonsPerModule: parsed.modules[0]?.lessons?.length || lesCount,
+            modules: parsed.modules.map((m, idx) => ({
+              title: String(m.title || `Core Module ${idx + 1}`).replace(/^Module\s*\d+\s*[:.-]\s*/i, '').trim(),
+              lessons: Array.isArray(m.lessons) && m.lessons.length > 0
+                ? m.lessons.map((l, lIdx) => String(l?.title || l || `Lesson ${idx + 1}.${lIdx + 1}`).replace(/^\d+\.\d+\s*[:.-]?\s*/, '').trim())
+                : Array.from({ length: lesCount }, (_, lIdx) => `${cleanTopic} Concept ${idx + 1}.${lIdx + 1}`)
+            })),
+            instructionalMethods: String(parsed.instructionalMethods || 'Concept-first explanations, real-world case studies, guided analytical exercises, and interactive quizzes.').trim(),
+            additionalDetails: String(parsed.additionalDetails || `Designed for learners seeking practical mastery of ${cleanTopic}.`).trim()
+          }
+        });
+      }
+    } catch (err) {
+      console.warn('[TutorAI] AI course plan analysis fallback triggered:', err.message);
+    }
+  }
+
+  // Intelligent deterministic fallback (also parses headings if sourceText was uploaded)
+  const fallbackBp = buildDeterministicCourseBlueprint({
+    topic: cleanTopic,
+    customTitle: '',
+    learningGoal: '',
+    learnerLevel: 'Beginner',
+    targetAudience: 'Self-directed learners',
+    language,
+    modulesCount: modCount,
+    lessonsPerModule: lesCount,
+    customOutline: [],
+    sourceMaterial: sourceText
+  });
+
+  return res.json({
+    ok: true,
+    plan: {
+      courseTitle: fallbackBp.title,
+      learningOutcomes: (fallbackBp.expectedOutcomes || []).map(o => `• ${o}`).join('\n'),
+      modulesCount: fallbackBp.modules.length,
+      lessonsPerModule: fallbackBp.modules[0]?.lessons?.length || lesCount,
+      modules: fallbackBp.modules.map(m => ({
+        title: String(m.title || '').replace(/^Module\s*\d+\s*[:.-]\s*/i, '').trim(),
+        lessons: (m.lessons || []).map(l => String(l.title || '').replace(/^\d+\.\d+\s*[:.-]?\s*/, '').trim())
+      })),
+      instructionalMethods: 'First-principles explanations, real-world industry case studies, step-by-step worked examples, and interactive mastery quizzes.',
+      additionalDetails: `Structured ${fallbackBp.modules.length}-module curriculum tailored for ${cleanTopic}.`
+    }
+  });
+});
+
+// ============================================================================
+// AI Diagnostic Personalization Questions (/api/ai/diagnostic-questions)
+// ============================================================================
+app.post('/api/ai/diagnostic-questions', async (req, res) => {
+  const userId = getAuthenticatedUserId(req);
+  const { topic = '', language = 'English', providerId = null } = req.body || {};
+  const cleanTopic = String(topic || 'this subject').trim();
+
+  let providerConfig = null;
+  try {
+    providerConfig = resolveProviderConfig(userId, providerId);
+  } catch (_) {
+    providerConfig = null;
+  }
+
+  if (providerConfig) {
+    try {
+      const prompt = `Create 3 short, insightful diagnostic multiple-choice questions to personalize a course on "${cleanTopic}" (in ${language}).
+Question 1 should assess the learner's current familiarity/experience with "${cleanTopic}".
+Question 2 should identify their primary practical goal or use-case for learning "${cleanTopic}".
+Question 3 should ask their preferred instructional style for "${cleanTopic}".
+
+Return ONLY a valid JSON object:
+{
+  "questions": [
+    {
+      "id": "q1",
+      "question": "Question text?",
+      "options": ["Option A", "Option B", "Option C", "Option D"]
+    }
+  ]
+}`;
+      const raw = await executeAIRequest(providerConfig, {
+        systemInstruction: 'You are an adaptive learning specialist. Output strictly valid JSON.',
+        prompt,
+        expectJson: true,
+        temperature: 0.5
+      });
+      const parsed = extractAndParseJson(raw);
+      if (parsed && Array.isArray(parsed.questions) && parsed.questions.length >= 2) {
+        return res.json({ ok: true, questions: parsed.questions.slice(0, 3) });
+      }
+    } catch (err) {
+      console.warn('[TutorAI] Diagnostic questions fallback triggered:', err.message);
+    }
+  }
+
+  return res.json({
+    ok: true,
+    questions: [
+      {
+        id: 'q1',
+        question: `What is your current experience level with ${cleanTopic}?`,
+        options: [
+          `Complete beginner — starting from scratch`,
+          `Familiar with basic terminology, seeking structured foundations`,
+          `Intermediate practitioner looking for deeper frameworks`,
+          `Advanced — focusing on mastery, edge cases, and optimization`
+        ]
+      },
+      {
+        id: 'q2',
+        question: `What is your primary goal for learning ${cleanTopic}?`,
+        options: [
+          `Apply ${cleanTopic} immediately in real-world projects or career work`,
+          `Pass an academic exam, certification, or technical interview`,
+          `Build a comprehensive mental model and theoretical foundation`,
+          `Teach, mentor, or lead others in ${cleanTopic}`
+        ]
+      },
+      {
+        id: 'q3',
+        question: `Which learning approach helps you retain ${cleanTopic} best?`,
+        options: [
+          `Step-by-step worked examples and hands-on case studies`,
+          `Visual mental models, analogies, and simplified breakdowns`,
+          `Rigorous technical depth, formal definitions, and proofs`,
+          `Fast-paced executive summaries with actionable checklists`
+        ]
+      }
+    ]
+  });
+});
+
 // SPA Fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));

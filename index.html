@@ -391,17 +391,14 @@
     </section>
 
     <!-- ==========================================================================
-         SCREEN 2: CREATE NEW COURSE (tutorai.me Enhanced Experience)
+         SCREEN 2: CREATE NEW COURSE (tutorai.me Exact Layout + Enhanced AI Capabilities)
          ========================================================================== -->
     <section class="view-section" id="view-create-course">
       <div class="create-course-wrapper">
-        <div class="create-header">
-          <h1>Create a New AI Course</h1>
-          <p style="color: var(--slate-light);">Enter any topic, upload your own sources, or define a custom syllabus structure</p>
-        </div>
-
-        <!-- Main White Rounded Card Container (Matching tutorai.me/create) -->
+        <!-- Main White Rounded Card Container (Matches 20eee8d3.jpg - 716212b9.jpg) -->
         <div class="tutorai-create-card">
+          <h1 class="tutorai-create-card-heading">Create New Course</h1>
+
           <!-- Pill Topic Input Box -->
           <div class="create-input-box tutorai-pill-input-box">
             <input type="text" id="createCourseInput" placeholder="Type a topic to learn..." autocomplete="off">
@@ -420,7 +417,7 @@
               </label>
               <div class="tutorai-toggle-text" id="useOwnSourcesTriggerText">
                 <div class="tutorai-toggle-title">Use your own sources</div>
-                <div class="tutorai-toggle-sub">Upload or select documents to build a course with your own content</div>
+                <div class="tutorai-toggle-sub">Upload or select documents to build a course with your own content.</div>
               </div>
             </div>
 
@@ -429,12 +426,15 @@
               <div class="inline-sources-box">
                 <div class="inline-sources-actions">
                   <button type="button" class="btn-secondary btn-sm-outline" id="btnTriggerInlineSourceFile">
-                    📄 Upload Document (.PDF, .TXT, .MD)
+                    📄 Upload Document (.TXT, .MD, .JSON, .CSV)
                   </button>
-                  <input type="file" id="inlineRagFileInput" accept=".pdf,.txt,.md" style="display: none;">
+                  <button type="button" class="btn-outline-ai" id="btnExtractStructureFromSource" style="padding: 7px 14px; font-size: 0.84rem; min-width: auto; flex: 0 1 auto;">
+                    ✨ Extract Course Structure with AI
+                  </button>
+                  <input type="file" id="inlineRagFileInput" accept=".pdf,.txt,.md,.json,.csv" style="display: none;">
                   <span id="inlineRagFileBadge" class="inline-file-badge" style="display: none;"></span>
                 </div>
-                <textarea id="inlineSourceTextarea" rows="3" placeholder="Or paste your lecture notes, syllabus, article, or study material directly here..."></textarea>
+                <textarea id="inlineSourceTextarea" rows="4" placeholder="Paste your lecture notes, syllabus, article, or study material directly here... You can also click '✨ Extract Course Structure with AI' to automatically build the modules & lessons from your text!"></textarea>
               </div>
             </div>
           </div>
@@ -448,164 +448,218 @@
               </label>
               <div class="tutorai-toggle-text" id="defineStructureTriggerText">
                 <div class="tutorai-toggle-title">Define course structure</div>
-                <div class="tutorai-toggle-sub">Generate and customize the structure before building the course</div>
+                <div class="tutorai-toggle-sub">Generate and customize the structure before building the course.</div>
               </div>
             </div>
 
-            <!-- Inline Expandable 6-Row Structure Accordion (Matching Screenshots 53cc9c18 - 716212b9) -->
+            <!-- Inline Expandable 6-Row Structure Accordion (Matches Screenshots 53cc9c18 - 716212b9) -->
             <div class="tutorai-structure-accordion-list" id="inlineDefineStructurePanel" style="display: none;">
-              
-              <!-- 1. Course Title -->
+              <div class="structure-configure-top-bar">
+                <span class="structure-configure-helper">Configure the sections below to help generate more relevant content.</span>
+                <button type="button" class="btn-ai-magic-fill" id="btnMagicFillAllStructure">
+                  ✨ Auto-Fill All with AI
+                </button>
+              </div>
+
+              <!-- 1. Course Title (Screenshot 66fb052f.jpg) -->
               <div class="structure-acc-item" data-acc-key="courseTitle">
                 <div class="structure-acc-header">
                   <div class="structure-acc-left">
+                    <span class="structure-acc-icon-box" aria-hidden="true">☰</span>
+                    <span class="structure-acc-label">Course Title</span>
+                  </div>
+                  <div class="structure-acc-right">
                     <label class="ios-switch ios-switch-sm" onclick="event.stopPropagation()">
                       <input type="checkbox" id="swCourseTitle" class="structure-sub-switch" data-target="accBodyCourseTitle">
                       <span class="ios-slider"></span>
                     </label>
-                    <span class="structure-acc-label">Course Title</span>
+                    <button type="button" class="structure-acc-chevron" data-target="accBodyCourseTitle" aria-label="Toggle Course Title">‹</button>
                   </div>
-                  <button type="button" class="structure-acc-chevron" data-target="accBodyCourseTitle" aria-label="Toggle Course Title">⌄</button>
                 </div>
                 <div class="structure-acc-body" id="accBodyCourseTitle" style="display: none;">
-                  <input type="text" id="customCourseTitleInput" placeholder="Enter the course title">
+                  <div class="structure-field-with-ai">
+                    <input type="text" id="customCourseTitleInput" class="tutorai-soft-input" placeholder="Enter the course title">
+                    <button type="button" class="btn-inline-ai-chip" id="btnAiSuggestTitle" title="Suggest Course Title with AI">✨ Suggest</button>
+                  </div>
                 </div>
               </div>
 
-              <!-- 2. Learning Outcomes -->
+              <!-- 2. Learning Outcomes (Screenshot b4bca32c.jpg) -->
               <div class="structure-acc-item" data-acc-key="learningOutcomes">
                 <div class="structure-acc-header">
                   <div class="structure-acc-left">
+                    <span class="structure-acc-icon-box" aria-hidden="true">🎓</span>
+                    <span class="structure-acc-label">Learning Outcomes</span>
+                  </div>
+                  <div class="structure-acc-right">
                     <label class="ios-switch ios-switch-sm" onclick="event.stopPropagation()">
                       <input type="checkbox" id="swLearningOutcomes" class="structure-sub-switch" data-target="accBodyLearningOutcomes">
                       <span class="ios-slider"></span>
                     </label>
-                    <span class="structure-acc-label">Learning Outcomes</span>
+                    <button type="button" class="structure-acc-chevron" data-target="accBodyLearningOutcomes" aria-label="Toggle Learning Outcomes">‹</button>
                   </div>
-                  <button type="button" class="structure-acc-chevron" data-target="accBodyLearningOutcomes" aria-label="Toggle Learning Outcomes">⌄</button>
                 </div>
                 <div class="structure-acc-body" id="accBodyLearningOutcomes" style="display: none;">
-                  <textarea id="customLearningOutcomesInput" rows="3" placeholder="Enter what students will learn"></textarea>
+                  <textarea id="customLearningOutcomesInput" class="tutorai-soft-input" rows="3" placeholder="Enter what students will learn"></textarea>
+                  <div class="structure-mini-actions">
+                    <button type="button" class="btn-inline-ai-chip" id="btnAiSuggestOutcomes">✨ Generate Learning Outcomes with AI</button>
+                  </div>
                 </div>
               </div>
 
-              <!-- 3. Course Size -->
+              <!-- 3. Course Size (Screenshot 763c35a6.jpg) -->
               <div class="structure-acc-item" data-acc-key="courseSize">
                 <div class="structure-acc-header">
                   <div class="structure-acc-left">
+                    <span class="structure-acc-icon-box" aria-hidden="true">🕒</span>
+                    <span class="structure-acc-label">Course Size</span>
+                  </div>
+                  <div class="structure-acc-right">
                     <label class="ios-switch ios-switch-sm" onclick="event.stopPropagation()">
                       <input type="checkbox" id="swCourseSize" class="structure-sub-switch" data-target="accBodyCourseSize">
                       <span class="ios-slider"></span>
                     </label>
-                    <span class="structure-acc-label">Course Size</span>
+                    <button type="button" class="structure-acc-chevron" data-target="accBodyCourseSize" aria-label="Toggle Course Size">‹</button>
                   </div>
-                  <button type="button" class="structure-acc-chevron" data-target="accBodyCourseSize" aria-label="Toggle Course Size">⌄</button>
                 </div>
                 <div class="structure-acc-body" id="accBodyCourseSize" style="display: none;">
                   <div class="course-size-grid">
                     <div class="course-size-field">
                       <label for="customNumModulesInput">Number of Modules</label>
-                      <input type="number" id="customNumModulesInput" value="4" min="1" max="12">
+                      <input type="number" id="customNumModulesInput" class="tutorai-soft-input" value="4" min="1" max="12">
                     </div>
                     <div class="course-size-field">
                       <label for="customLessonsPerModuleInput">Lessons per Module (avg)</label>
-                      <input type="number" id="customLessonsPerModuleInput" value="4" min="1" max="10">
+                      <input type="number" id="customLessonsPerModuleInput" class="tutorai-soft-input" value="4" min="1" max="10">
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- 4. Course Outline -->
+              <!-- 4. Course Outline (Screenshot aacaced2.jpg) -->
               <div class="structure-acc-item" data-acc-key="courseOutline">
                 <div class="structure-acc-header">
                   <div class="structure-acc-left">
+                    <span class="structure-acc-icon-box" aria-hidden="true">🗂️</span>
+                    <span class="structure-acc-label">Course Outline</span>
+                  </div>
+                  <div class="structure-acc-right">
                     <label class="ios-switch ios-switch-sm" onclick="event.stopPropagation()">
                       <input type="checkbox" id="swCourseOutline" class="structure-sub-switch" data-target="accBodyCourseOutline">
                       <span class="ios-slider"></span>
                     </label>
-                    <span class="structure-acc-label">Course Outline</span>
+                    <button type="button" class="structure-acc-chevron" data-target="accBodyCourseOutline" aria-label="Toggle Course Outline">‹</button>
                   </div>
-                  <button type="button" class="structure-acc-chevron" data-target="accBodyCourseOutline" aria-label="Toggle Course Outline">⌄</button>
                 </div>
                 <div class="structure-acc-body" id="accBodyCourseOutline" style="display: none;">
                   <div id="inlineOutlineModulesContainer" class="inline-outline-modules-list">
-                    <!-- Populated dynamically by app.js -->
+                    <!-- Populated dynamically by app.js matching aacaced2.jpg -->
                   </div>
 
                   <div class="inline-outline-actions-row">
-                    <button type="button" class="btn-outline-dashed" id="btnAddInlineModule">+ Add Module</button>
-                    <button type="button" class="btn-outline-ai" id="btnAutoGenerateInlineOutline">✨ Auto-Fill with AI</button>
+                    <button type="button" class="btn-tutorai-soft-coral" id="btnAddInlineModule">+ Add Module</button>
+                    <button type="button" class="btn-outline-ai" id="btnAutoGenerateInlineOutline">✨ Auto-Fill Outline with AI</button>
                   </div>
 
                   <div class="allow-additional-modules-row">
-                    <div>
-                      <div class="allow-mod-title">Allow Additional Modules</div>
-                      <div class="allow-mod-sub">Allow AI to add more modules if needed to cover the topic</div>
-                    </div>
                     <label class="ios-switch ios-switch-sm">
                       <input type="checkbox" id="toggleAllowAdditionalModules" checked>
                       <span class="ios-slider"></span>
                     </label>
+                    <span class="allow-mod-title">Allow Additional Modules</span>
                   </div>
                 </div>
               </div>
 
-              <!-- 5. Instructional Methods -->
+              <!-- 5. Instructional Methods (Screenshot 0a31a4e3.jpg) -->
               <div class="structure-acc-item" data-acc-key="instructionalMethods">
                 <div class="structure-acc-header">
                   <div class="structure-acc-left">
+                    <span class="structure-acc-icon-box" aria-hidden="true">🎓</span>
+                    <span class="structure-acc-label">Instructional Methods</span>
+                  </div>
+                  <div class="structure-acc-right">
                     <label class="ios-switch ios-switch-sm" onclick="event.stopPropagation()">
                       <input type="checkbox" id="swInstructionalMethods" class="structure-sub-switch" data-target="accBodyInstructionalMethods">
                       <span class="ios-slider"></span>
                     </label>
-                    <span class="structure-acc-label">Instructional Methods</span>
+                    <button type="button" class="structure-acc-chevron" data-target="accBodyInstructionalMethods" aria-label="Toggle Instructional Methods">‹</button>
                   </div>
-                  <button type="button" class="structure-acc-chevron" data-target="accBodyInstructionalMethods" aria-label="Toggle Instructional Methods">⌄</button>
                 </div>
                 <div class="structure-acc-body" id="accBodyInstructionalMethods" style="display: none;">
-                  <textarea id="customInstructionalMethodsInput" rows="3" placeholder="Enter instructional methods for the course (e.g., Socratic case studies, hands-on code labs, step-by-step proofs)"></textarea>
+                  <textarea id="customInstructionalMethodsInput" class="tutorai-soft-input" rows="3" placeholder="Enter instructional methods for the course"></textarea>
+                  <div class="method-chips-row">
+                    <button type="button" class="method-quick-chip" data-method="Real-world case studies & practical examples">+ Case Studies</button>
+                    <button type="button" class="method-quick-chip" data-method="Step-by-step worked exercises & problem solving">+ Worked Exercises</button>
+                    <button type="button" class="method-quick-chip" data-method="Socratic questioning & mental models">+ Mental Models</button>
+                    <button type="button" class="method-quick-chip" data-method="Hands-on code labs & implementation checklists">+ Hands-On Labs</button>
+                  </div>
                 </div>
               </div>
 
-              <!-- 6. Additional Details -->
+              <!-- 6. Additional Details (Screenshot 716212b9.jpg) -->
               <div class="structure-acc-item" data-acc-key="additionalDetails">
                 <div class="structure-acc-header">
                   <div class="structure-acc-left">
+                    <span class="structure-acc-icon-box" aria-hidden="true">ℹ️</span>
+                    <span class="structure-acc-label">Additional Details</span>
+                  </div>
+                  <div class="structure-acc-right">
                     <label class="ios-switch ios-switch-sm" onclick="event.stopPropagation()">
                       <input type="checkbox" id="swAdditionalDetails" class="structure-sub-switch" data-target="accBodyAdditionalDetails">
                       <span class="ios-slider"></span>
                     </label>
-                    <span class="structure-acc-label">Additional Details</span>
+                    <button type="button" class="structure-acc-chevron" data-target="accBodyAdditionalDetails" aria-label="Toggle Additional Details">‹</button>
                   </div>
-                  <button type="button" class="structure-acc-chevron" data-target="accBodyAdditionalDetails" aria-label="Toggle Additional Details">⌄</button>
                 </div>
                 <div class="structure-acc-body" id="accBodyAdditionalDetails" style="display: none;">
-                  <textarea id="customAdditionalDetailsInput" rows="3" placeholder="Enter any additional details about the course"></textarea>
+                  <textarea id="customAdditionalDetailsInput" class="tutorai-soft-input" rows="3" placeholder="Enter any additional details about the course"></textarea>
+                  <div class="additional-details-meta-grid">
+                    <div>
+                      <label for="createCourseLangSelect">Course Language</label>
+                      <select id="createCourseLangSelect" class="tutorai-soft-input">
+                        <option value="Auto-Detect" selected>Auto-Detect (Matches Topic Language)</option>
+                        <option value="English">English</option>
+                        <option value="Arabic">العربية (Arabic)</option>
+                        <option value="Spanish">Español (Spanish)</option>
+                        <option value="French">Français (French)</option>
+                        <option value="German">Deutsch (German)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="createCourseDifficultySelect">Target Difficulty</label>
+                      <select id="createCourseDifficultySelect" class="tutorai-soft-input">
+                        <option value="Beginner">Beginner — Zero Prerequisites</option>
+                        <option value="Intermediate" selected>Intermediate — Comprehensive & Practical</option>
+                        <option value="Advanced">Advanced — Deep Technical & Rigorous</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <!-- Bottom Upload Course Plan Bar (Screenshot 716212b9) -->
+              <!-- Bottom Upload Course Plan Bar (Screenshot 53cc9c18.jpg & 716212b9.jpg) -->
               <div class="structure-upload-plan-bar">
                 <span class="upload-plan-text">Or let AI generate them automatically from your own course plan</span>
-                <button type="button" class="btn-upload-plan" id="btnUploadCoursePlanFile">Upload file</button>
-                <input type="file" id="coursePlanFileInput" accept=".pdf,.txt,.md,.json" style="display: none;">
+                <button type="button" class="btn-upload-plan-coral" id="btnUploadCoursePlanFile">Upload file</button>
+                <input type="file" id="coursePlanFileInput" accept=".pdf,.txt,.md,.json,.csv" style="display: none;">
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Suggested Topics Section (Matching Coral Pill Buttons in a074edaa.jpg) -->
-        <div class="suggested-topics-sec">
-          <div class="suggested-topics-title">Suggested Topics:</div>
-          <div class="suggested-btn-cloud">
-            <button class="suggested-btn" data-topic="Productivity Mastery">Productivity Mastery</button>
-            <button class="suggested-btn" data-topic="Creative Writing">Creative Writing</button>
-            <button class="suggested-btn" data-topic="Public Speaking">Public Speaking</button>
-            <button class="suggested-btn" data-topic="Financial Literacy">Financial Literacy</button>
-            <button class="suggested-btn" data-topic="Startup Fundamentals">Startup Fundamentals</button>
-            <button class="suggested-btn" data-topic="Growth Hacking">Growth Hacking</button>
-            <button class="suggested-btn" data-topic="Machine Learning">Machine Learning</button>
-            <button class="suggested-btn" data-topic="Quantum Computing">Quantum Computing</button>
+          <!-- Suggested Topics Section Inside Card (Matches 20eee8d3.jpg) -->
+          <div class="suggested-topics-sec">
+            <div class="suggested-topics-title">Suggested Topics:</div>
+            <div class="suggested-btn-cloud">
+              <button class="suggested-btn" data-topic="Productivity Mastery">Productivity Mastery</button>
+              <button class="suggested-btn" data-topic="Creative Writing">Creative Writing</button>
+              <button class="suggested-btn" data-topic="Public Speaking">Public Speaking</button>
+              <button class="suggested-btn" data-topic="Financial Literacy">Financial Literacy</button>
+              <button class="suggested-btn" data-topic="Startup Fundamentals">Startup Fundamentals</button>
+              <button class="suggested-btn" data-topic="Growth Hacking">Growth Hacking</button>
+              <button class="suggested-btn" data-topic="Machine Learning">Machine Learning</button>
+              <button class="suggested-btn" data-topic="Quantum Computing">Quantum Computing</button>
+            </div>
           </div>
         </div>
       </div>
@@ -613,21 +667,30 @@
 
     <!-- ==========================================================================
          SCREEN 3: COURSE OVERVIEW & INTERACTIVE LESSON WORKSPACE
-         (Matches 0916d856.jpg, 81e66467.jpg, 7f262306.jpg, 4f1703e8.jpg, 82871581.jpg, b521c888.jpg)
+         (Matches 0916d856.jpg, 4721c5a4.jpg, 81e66467.jpg, 7f262306.jpg, 4f1703e8.jpg, 82871581.jpg, b521c888.jpg)
          ========================================================================== -->
     <section class="view-section" id="view-course">
       <!-- A. COURSE OVERVIEW / MODULES LANDING VIEW (Screenshot 0916d856.jpg) -->
       <div class="course-overview-screen" id="courseOverviewContainer" style="display: none;">
         <div class="course-overview-card">
-          <div class="course-overview-top-bar">
+          <div class="course-overview-Badge-row">
             <span class="course-type-badge" id="courseOverviewTypeBadge">Generic</span>
-            <button type="button" class="btn-secondary btn-sm-outline" id="btnResumeLessonFromOverview">
-              📖 Open Active Lesson →
-            </button>
           </div>
 
           <h1 class="course-overview-main-title" id="courseOverviewTitle">Course Title</h1>
           <p class="course-overview-desc" id="courseOverviewDesc">Course description and learning overview.</p>
+
+          <div class="course-overview-actions-strip">
+            <button type="button" class="btn-secondary btn-sm-outline" id="btnResumeLessonFromOverview">
+              📖 Continue Active Lesson
+            </button>
+            <button type="button" class="btn-secondary btn-sm-outline" id="btnGenerateAllCourseLessons">
+              ⚡ Pre-Generate All Lessons
+            </button>
+            <button type="button" class="btn-secondary btn-sm-outline" id="btnExportCurrentCourse">
+              💾 Export Course JSON
+            </button>
+          </div>
 
           <div class="course-overview-progress-box">
             <div class="progress-header">
@@ -639,14 +702,13 @@
             </div>
           </div>
 
-          <div class="course-overview-modules-title">Modules</div>
           <div class="course-overview-modules-list" id="courseOverviewModulesList">
             <!-- Populated dynamically with numbered Module cards + "Start Module" buttons -->
           </div>
         </div>
       </div>
 
-      <!-- B. LESSON STUDY VIEW (Screenshots 81e66467.jpg - b521c888.jpg) -->
+      <!-- B. LESSON STUDY VIEW (Screenshots 4721c5a4.jpg, 81e66467.jpg - b521c888.jpg) -->
       <div class="study-workspace-container" id="lessonStudyContainer">
         <!-- Mobile Sidebar Outline Toggle Bar -->
         <div class="mobile-outline-bar" id="mobileOutlineBar">
@@ -684,34 +746,44 @@
         <!-- Right Canvas: Lesson Study & 4-Tab Interactive Canvas -->
         <div class="lesson-canvas-container">
           <div class="lesson-canvas-inner">
-            <!-- Breadcrumb & Course Overview Switcher -->
+            <!-- Module Header Row (Screenshot 4721c5a4.jpg) -->
             <div class="lesson-header-meta">
               <span class="lesson-module-tag" id="lessonModuleTag">Module 1</span>
               <button type="button" class="btn-back-overview" id="btnBackToCourseOverview">
-                📋 Course Modules Overview
+                📋 Course Overview
               </button>
             </div>
 
-            <!-- Lesson Main Title -->
-            <h1 class="lesson-title-main" id="lessonTitleMain">1.1 Lesson Title</h1>
-
-            <!-- 3 Circular Coral Action Buttons + Utility Controls (Screenshot 81e66467.jpg) -->
-            <div class="lesson-top-actions-row">
+            <!-- Lesson Title + 3 Circular Outlined Coral Action Buttons on same row (Screenshot 4721c5a4.jpg) -->
+            <div class="lesson-title-and-actions-bar">
+              <h1 class="lesson-title-main" id="lessonTitleMain">1.1 Lesson Title</h1>
               <div class="lesson-circle-actions">
+                <button type="button" class="circle-action-btn" id="btnBookmarkLesson" title="Bookmark / Flag Lesson">
+                  ⚑
+                </button>
+                <button type="button" class="circle-action-btn" id="btnKeyTakeaways" title="Share / Key Takeaways & Concept Map">
+                  ☍
+                </button>
+                <button type="button" class="circle-action-btn" id="btnGoFlashcards" title="Copy Lesson / Generate Spaced-Repetition Flashcards">
+                  ❐
+                </button>
                 <button type="button" class="circle-action-btn" id="btnReadAloud" title="Read Aloud (Text-to-Speech)">
                   🔊
                 </button>
-                <button type="button" class="circle-action-btn" id="btnKeyTakeaways" title="Key Takeaways & Concept Map">
-                  ☍
-                </button>
-                <button type="button" class="circle-action-btn" id="btnGoFlashcards" title="Generate Spaced-Repetition Flashcards">
-                  ❐
-                </button>
               </div>
+            </div>
 
+            <!-- Secondary Utility Controls Row -->
+            <div class="lesson-top-actions-row">
               <div class="lesson-utility-btns">
                 <button type="button" class="btn-util-pill" id="btnToggleAllSubsections" title="Expand or Collapse All Sections">
                   ↕ Expand All
+                </button>
+                <button type="button" class="btn-util-pill" id="btnEditCurrentLesson" title="Edit Lesson Markdown">
+                  ✏️ Edit Lesson
+                </button>
+                <button type="button" class="btn-util-pill" id="btnRegenerateCurrentLesson" title="Regenerate Lesson with AI">
+                  🔄 Regenerate
                 </button>
               </div>
             </div>
@@ -794,7 +866,7 @@
           </div>
         </div>
 
-        <!-- Right-Edge Floating Course Outline Drawer Trigger Button (Screenshot 81e66467.jpg) -->
+        <!-- Right-Edge Floating Course Outline Drawer Trigger Button (Screenshot 4721c5a4.jpg & 81e66467.jpg) -->
         <button type="button" class="floating-outline-edge-btn" id="btnFloatingOutlineDrawer" title="Open Course Outline">
           📖
         </button>
@@ -803,11 +875,17 @@
         <div class="slideover-outline-backdrop" id="slideOverOutlineBackdrop"></div>
         <aside class="slideover-outline-drawer" id="slideOverOutlineDrawer" aria-label="Course Outline Drawer">
           <div class="slideover-outline-header">
-            <h3>Course Outline</h3>
+            <div class="slideover-course-brand">
+              <div class="slideover-course-icon">🪐</div>
+              <div>
+                <h3 id="slideOverCourseTitle">Course Outline</h3>
+                <span class="course-type-badge" id="slideOverCourseBadge">Generic</span>
+              </div>
+            </div>
             <button type="button" class="slideover-close-btn" id="btnCloseSlideOverOutline">&times;</button>
           </div>
           <div class="slideover-outline-body" id="slideOverOutlineList">
-            <!-- Populated with Modules and Lessons (1.1, 1.2...) with ✓ checkmarks -->
+            <!-- Populated with Modules and Lessons (1.1, 1.2...) with 📄 icon and ✓ checkmarks -->
           </div>
         </aside>
 
@@ -1298,7 +1376,7 @@
        MODALS & SLIDE-OUT DRAWERS
        ========================================================================== -->
 
-  <!-- 0. Personalization Preference Modal (Screenshots 76e4df9f.jpg & f1546fd0.jpg) -->
+  <!-- 0. Personalization Preference Modal (Screenshots 7e2ba3b1.jpg, 540c478c.jpg, f1546fd0.jpg) -->
   <div class="modal-backdrop" id="personalizationModal">
     <div class="modal-dialog personalization-dialog">
       <button class="modal-close-btn" id="btnClosePersonalizationModal">&times;</button>
@@ -1309,7 +1387,7 @@
         <label class="pers-radio-option" id="persLabelYes">
           <input type="radio" name="persPreferenceRadio" id="persRadioYes" value="yes">
           <span class="pers-radio-custom"></span>
-          <span class="pers-radio-text">Yes <span class="pers-free-unlocked-tag">✦ Unlocked Free</span></span>
+          <span class="pers-radio-text">Yes <span class="pers-free-unlocked-tag">✦ AI Adaptive (Free)</span></span>
         </label>
 
         <label class="pers-radio-option selected" id="persLabelNo">
@@ -1319,8 +1397,16 @@
         </label>
       </div>
 
-      <!-- Unlocked Free Personalization Settings (When 'Yes' is selected) -->
+      <!-- Unlocked Free Personalization Settings + AI Diagnostic Wizard (When 'Yes' is selected) -->
       <div class="pers-options-drawer" id="persCustomOptionsDrawer" style="display: none;">
+        <div class="pers-diagnostic-header">
+          <span style="font-size: 0.82rem; font-weight: 700; color: var(--navy);">🎯 Customize Your Learning Profile</span>
+          <button type="button" class="btn-inline-ai-chip" id="btnLoadDiagnosticQuiz">✨ AI Diagnostic Quiz</button>
+        </div>
+
+        <!-- Optional 3-Question AI Diagnostic Quiz Container -->
+        <div id="persDiagnosticQuestionsBox" style="display: none; margin-bottom: 10px;"></div>
+
         <div class="pers-field-row">
           <label for="persLearnerLevelSelect">Your Experience Level</label>
           <select id="persLearnerLevelSelect">
@@ -1335,6 +1421,7 @@
             <option value="Practical & Examples" selected>Practical & Real-World Examples</option>
             <option value="Academic & Deep Theory">Academic & Deep Conceptual Theory</option>
             <option value="Step-by-Step Fast Track">Step-by-Step Fast Track & Exercises</option>
+            <option value="Visual Mental Models & Analogies">Visual Mental Models & Analogies</option>
           </select>
         </div>
         <div class="pers-field-row">
@@ -1345,8 +1432,13 @@
 
       <!-- Inline Generation Progress Spinner (Screenshot f1546fd0.jpg) -->
       <div class="pers-generating-status" id="persGeneratingStatus" style="display: none;">
-        <span class="pers-spinner"></span>
-        <span id="persGeneratingText">Generating... Please wait.</span>
+        <div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: center;">
+          <span class="pers-spinner"></span>
+          <span id="persGeneratingText">Generating... Please wait.</span>
+        </div>
+        <div class="pers-progress-track">
+          <div class="pers-progress-bar" id="persGeneratingProgressBar" style="width: 15%;"></div>
+        </div>
       </div>
 
       <button type="button" class="btn-primary pers-create-now-btn" id="btnConfirmPersonalizationCreate">
