@@ -15,7 +15,11 @@ app.use(express.static(path.join(__dirname)));
 //    - Keys are encrypted at rest and scoped strictly to each user's userId.
 //    - Raw API keys are NEVER returned to the client or written to logs.
 // ============================================================================
-const VAULT_FILE = path.join(__dirname, 'database', 'user-vault.enc.json');
+const os = require('os');
+const VAULT_FILE = process.env.VERCEL
+  ? path.join(os.tmpdir(), 'user-vault.enc.json')
+  : path.join(__dirname, 'database', 'user-vault.enc.json');
+let memoryVaultFallback = { providersByUser: {}, localUsers: {} };
 const VAULT_SECRET = process.env.KEY_VAULT_SECRET || 'tutorai-server-vault-secret-key-2026-aes256';
 const ENCRYPTION_KEY = crypto.scryptSync(VAULT_SECRET, 'tutorai_salt_v1', 32);
 
@@ -63,26 +67,28 @@ function sanitizeErrorMessage(msg, rawKey) {
 function loadVault() {
   try {
     if (!fs.existsSync(VAULT_FILE)) {
-      return { providersByUser: {}, localUsers: {} };
+      return memoryVaultFallback;
     }
     const raw = fs.readFileSync(VAULT_FILE, 'utf8');
     const parsed = JSON.parse(raw);
-    return {
+    memoryVaultFallback = {
       providersByUser: parsed.providersByUser || {},
       localUsers: parsed.localUsers || {}
     };
+    return memoryVaultFallback;
   } catch (e) {
-    return { providersByUser: {}, localUsers: {} };
+    return memoryVaultFallback;
   }
 }
 
 function saveVault(vaultData) {
+  memoryVaultFallback = vaultData;
   try {
     const dir = path.dirname(VAULT_FILE);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(VAULT_FILE, JSON.stringify(vaultData, null, 2), 'utf8');
   } catch (e) {
-    console.error('Vault write error');
+    console.error('Vault write fallback to memory');
   }
 }
 
@@ -2526,6 +2532,10 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.listen(PORT, HOST, () => {
-  console.log(`TutorAI Full-Stack Server started on http://${HOST}:${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, HOST, () => {
+    console.log(`TutorAI Full-Stack Server started on http://${HOST}:${PORT}`);
+  });
+}
+
+module.exports = app;
