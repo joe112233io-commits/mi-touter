@@ -2,15 +2,12 @@
   "name": "tutorai-desktop",
   "version": "1.0.0",
   "description": "TutorAI Desktop Platform - AI-Powered Generative Learning Management System with Local Realm DB and Electron Support",
-  "main": "main.js",
+  "main": "server.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron .",
-    "serve": "npx serve -l 3000 .",
-    "dist": "electron-builder",
-    "dist:win": "electron-builder --win",
-    "dist:mac": "electron-builder --mac",
-    "dist:linux": "electron-builder --linux"
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "echo 'Static build complete'",
+    "serve": "node server.js"
   },
   "keywords": [
     "tutorai",
@@ -23,11 +20,10 @@
   ],
   "author": "Lumination AI / Azvai Engineering Replica",
   "license": "MIT",
-  "dependencies": {},
-  "devDependencies": {
-    "electron": "^33.0.0",
-    "electron-builder": "^26.18.0"
+  "dependencies": {
+    "express": "^4.21.2"
   },
+  "devDependencies": {},
   "build": {
     "appId": "com.azvai.tutorai",
     "productName": "TutorAI",
