@@ -28,11 +28,52 @@ class TutorAIApp {
     this.activeGenerationCourseId = null;
     this.pendingCreateTopic = '';
     this.diagnosticAnswers = {};
+    this.selectedFlashcardCourseFilter = 'all';
+    this.librarySearchQuery = '';
+    this.libraryStatusFilter = 'all';
+    this.chatHistoryByLesson = {};
     this.inlineOutlineModules = [
       { title: 'Module 1', lessons: [] },
       { title: 'Module 2', lessons: [] },
       { title: 'Module 3', lessons: [] }
     ];
+  }
+
+  extractCleanTextFromFile(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        let raw = String(reader.result || '');
+        const isPdf = file.name.toLowerCase().endsWith('.pdf') || raw.startsWith('%PDF');
+        if (isPdf) {
+          // Extract readable text segments from PDF or fall back to clean topic synthesis
+          const parentheticalMatches = [];
+          const regex = /\(([^()\\]{4,180})\)/g;
+          let m;
+          while ((m = regex.exec(raw)) !== null) {
+            const cleaned = m[1].replace(/[^\x20-\x7E\u0600-\u06FF]/g, ' ').replace(/\s+/g, ' ').trim();
+            if (cleaned.length > 4 && !/^(Type|Font|Page|Catalog|Outlines|MediaBox|Resources|ProcSet|FlateDecode)/i.test(cleaned)) {
+              parentheticalMatches.push(cleaned);
+            }
+          }
+          const readableLines = raw
+            .replace(/[^\x20-\x7E\u0600-\u06FF\n]/g, ' ')
+            .split(/\n+/)
+            .map(l => l.replace(/\s+/g, ' ').trim())
+            .filter(l => l.length > 18 && !/^(obj|endobj|stream|endstream|xref|trailer|%PDF)/i.test(l) && /[a-zA-Z\u0600-\u06FF]{4,}/.test(l));
+
+          const combined = [...parentheticalMatches, ...readableLines].join('\n').slice(0, 14000).trim();
+          const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+          resolve(combined.length > 80 ? combined : `Course Syllabus & Reference Document: ${cleanName}`);
+        } else {
+          resolve(raw.slice(0, 15000));
+        }
+      };
+      reader.onerror = () => {
+        resolve(`Reference Document: ${file.name}`);
+      };
+      reader.readAsText(file);
+    });
   }
 
   async init() {
@@ -392,9 +433,7 @@ class TutorAIApp {
             badge.style.display = 'inline-block';
             badge.textContent = `✓ ${file.name} (${Math.round(file.size / 1024)} KB)`;
           }
-          const reader = new FileReader();
-          reader.onload = () => {
-            const text = String(reader.result || '').slice(0, 15000);
+          this.extractCleanTextFromFile(file).then((text) => {
             const txtArea = document.getElementById('inlineSourceTextarea');
             if (txtArea) txtArea.value = text;
             this.activeRagContext = {
@@ -407,8 +446,7 @@ class TutorAIApp {
               createInput.value = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
             }
             this.showToast(`Loaded source document "${file.name}".`);
-          };
-          reader.readAsText(file);
+          });
         }
       });
     }
@@ -576,26 +614,22 @@ class TutorAIApp {
     const coursePlanFileInput = document.getElementById('coursePlanFileInput');
     if (btnUploadCoursePlanFile && coursePlanFileInput) {
       btnUploadCoursePlanFile.addEventListener('click', () => coursePlanFileInput.click());
-      coursePlanFileInput.addEventListener('change', (e) => {
+      coursePlanFileInput.addEventListener('change', async (e) => {
         if (e.target.files && e.target.files[0]) {
           const file = e.target.files[0];
-          const reader = new FileReader();
-          reader.onload = async () => {
-            const text = String(reader.result || '').slice(0, 15000);
-            const createInput = document.getElementById('createCourseInput');
-            const inferredTopic = createInput?.value.trim() || file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-            if (createInput && !createInput.value.trim()) {
-              createInput.value = inferredTopic;
-            }
-            btnUploadCoursePlanFile.textContent = `⏳ Analyzing ${file.name}...`;
-            await this.handleAnalyzeCoursePlanWithAI({
-              topic: inferredTopic,
-              sourceText: text,
-              openAllSections: true
-            });
-            btnUploadCoursePlanFile.textContent = `✓ ${file.name}`;
-          };
-          reader.readAsText(file);
+          const text = await this.extractCleanTextFromFile(file);
+          const createInput = document.getElementById('createCourseInput');
+          const inferredTopic = createInput?.value.trim() || file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+          if (createInput && !createInput.value.trim()) {
+            createInput.value = inferredTopic;
+          }
+          btnUploadCoursePlanFile.textContent = `⏳ Analyzing ${file.name}...`;
+          await this.handleAnalyzeCoursePlanWithAI({
+            topic: inferredTopic,
+            sourceText: text,
+            openAllSections: true
+          });
+          btnUploadCoursePlanFile.textContent = `✓ ${file.name}`;
         }
       });
     }
@@ -670,6 +704,12 @@ class TutorAIApp {
     document.getElementById('btnGenerateAllCourseLessons')?.addEventListener('click', () => {
       this.generateAllRemainingLessonsForCurrentCourse();
     });
+    document.getElementById('btnRunConsistencyAudit')?.addEventListener('click', () => {
+      this.runCourseConsistencyAudit();
+    });
+    document.getElementById('btnOpenCourseCertificate')?.addEventListener('click', () => {
+      this.openCourseCertificateView();
+    });
 
     // 4 Horizontal Lesson Tabs (Content | Simplify | Quiz | Examples)
     document.querySelectorAll('#lessonTabsBar .tutorai-tab-btn').forEach(tabBtn => {
@@ -693,17 +733,37 @@ class TutorAIApp {
       }
     });
 
-    // Lesson Action Buttons: Bookmark (⚑), Key Takeaways (☍), Edit Lesson, Regenerate Lesson
+    // Lesson Action Buttons: Bookmark (⚑), Key Takeaways (☍), Edit Lesson, Study Notes, Regenerate Lesson
     document.getElementById('btnBookmarkLesson')?.addEventListener('click', (e) => {
       const btn = e.currentTarget;
-      btn.classList.toggle('active');
-      this.showToast(btn.classList.contains('active') ? '⚑ Lesson bookmarked to your study list.' : 'Bookmark removed.');
+      const lesson = window.realmDB.objects('Lesson').find(l => l.id === this.currentLessonId);
+      if (!lesson) return;
+      const nextState = !lesson.isBookmarked;
+      window.realmDB.write(() => {
+        lesson.isBookmarked = nextState;
+      });
+      btn.classList.toggle('active', nextState);
+      this.renderCourseWorkspace(true);
+      this.showToast(nextState ? '⚑ Lesson bookmarked to your study list.' : 'Bookmark removed.');
     });
     document.getElementById('btnKeyTakeaways')?.addEventListener('click', () => {
       this.renderKeyTakeawaysCard();
     });
     document.getElementById('btnEditCurrentLesson')?.addEventListener('click', () => {
       this.openInlineLessonEditor();
+    });
+    document.getElementById('btnToggleLessonNotes')?.addEventListener('click', () => {
+      this.toggleLessonNotesPanel();
+    });
+    document.getElementById('btnCloseLessonNotes')?.addEventListener('click', () => {
+      const panel = document.getElementById('lessonNotesPanel');
+      if (panel) panel.style.display = 'none';
+    });
+    document.getElementById('btnSaveLessonNotes')?.addEventListener('click', () => {
+      this.saveCurrentLessonNotes(true);
+    });
+    document.getElementById('lessonNotesTextarea')?.addEventListener('input', () => {
+      this.saveCurrentLessonNotes(false);
     });
     document.getElementById('btnRegenerateCurrentLesson')?.addEventListener('click', () => {
       this.regenerateCurrentLessonWithAI();
@@ -799,7 +859,7 @@ class TutorAIApp {
       });
     }
 
-    // Flashcard 3D flip card click & SM-2 grading
+    // Flashcard 3D flip card click, Deck Filter, Custom Card Creator & SM-2 grading
     document.getElementById('flashcardFlipWrapper')?.addEventListener('click', () => this.toggleCardFlip());
     document.querySelectorAll('[data-sm2-grade]').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -808,12 +868,61 @@ class TutorAIApp {
         this.submitFlashcardGrade(grade);
       });
     });
+    document.getElementById('fcCourseFilterSelect')?.addEventListener('change', (e) => {
+      this.selectedFlashcardCourseFilter = e.target.value || 'all';
+      this.initFlashcardsView();
+    });
+    document.getElementById('btnPrevFlashcard')?.addEventListener('click', () => {
+      if (!this.flashcardsQueue.length) return;
+      this.currentFlashcardIndex = (this.currentFlashcardIndex - 1 + this.flashcardsQueue.length) % this.flashcardsQueue.length;
+      this.renderCurrentFlashcard();
+    });
+    document.getElementById('btnNextFlashcard')?.addEventListener('click', () => {
+      if (!this.flashcardsQueue.length) return;
+      this.currentFlashcardIndex = (this.currentFlashcardIndex + 1) % this.flashcardsQueue.length;
+      this.renderCurrentFlashcard();
+    });
+    document.getElementById('btnToggleAddFlashcardForm')?.addEventListener('click', () => {
+      const panel = document.getElementById('fcAddCardPanel');
+      if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+    document.getElementById('btnCancelNewFlashcard')?.addEventListener('click', () => {
+      const panel = document.getElementById('fcAddCardPanel');
+      if (panel) panel.style.display = 'none';
+    });
+    document.getElementById('btnSaveNewFlashcard')?.addEventListener('click', () => {
+      this.handleCreateCustomFlashcard();
+    });
+    document.getElementById('btnAiGenerateDeckCards')?.addEventListener('click', () => {
+      this.handleAiGenerateDeckCards();
+    });
+
+    // Library Search, Filter & JSON Import
+    document.getElementById('librarySearchInput')?.addEventListener('input', (e) => {
+      this.librarySearchQuery = e.target.value || '';
+      this.renderLibraryView();
+    });
+    document.getElementById('libraryStatusFilter')?.addEventListener('change', (e) => {
+      this.libraryStatusFilter = e.target.value || 'all';
+      this.renderLibraryView();
+    });
+    const btnImportCourseJson = document.getElementById('btnImportCourseJson');
+    const importCourseJsonInput = document.getElementById('importCourseJsonInput');
+    if (btnImportCourseJson && importCourseJsonInput) {
+      btnImportCourseJson.addEventListener('click', () => importCourseJsonInput.click());
+      importCourseJsonInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          this.handleImportCourseJsonFile(e.target.files[0]);
+          e.target.value = '';
+        }
+      });
+    }
 
     // Homeworkify & Writing Coach
     document.getElementById('btnSolveHomework')?.addEventListener('click', () => this.handleSolveHomework());
     document.getElementById('btnReviewWriting')?.addEventListener('click', () => this.handleReviewWriting());
 
-    // Chat Drawer
+    // Chat Drawer & Quick Prompt Chips
     const btnSendChatMessage = document.getElementById('btnSendChatMessage');
     const chatInput = document.getElementById('chatInput');
     if (btnSendChatMessage && chatInput) {
@@ -822,6 +931,15 @@ class TutorAIApp {
         if (e.key === 'Enter') btnSendChatMessage.click();
       });
     }
+    document.querySelectorAll('#chatQuickPromptsBar .chat-quick-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const promptText = chip.getAttribute('data-prompt') || '';
+        if (chatInput && promptText) {
+          chatInput.value = promptText;
+          this.sendChatMessage();
+        }
+      });
+    });
     document.getElementById('btnCloseChatDrawer')?.addEventListener('click', () => this.closeChatDrawer());
 
     // FAQ Accordion
@@ -2002,7 +2120,7 @@ class TutorAIApp {
     });
   }
 
-  renderCourseWorkspace() {
+  renderCourseWorkspace(skipLessonLoad = false) {
     const course = window.realmDB.objects('Course').find(c => c.id === this.currentCourseId)
       || window.realmDB.objects('Course').items[0];
 
@@ -2075,6 +2193,7 @@ class TutorAIApp {
                 <button class="lesson-nav-item ${isActive ? 'active-lesson' : ''}" data-lesson-id="${les.id}">
                   <span class="lesson-status-icon ${iconClass}">${iconText}</span>
                   <span style="flex: 1; text-align: left;">${this.escapeHtml(les.title)}</span>
+                  ${les.isBookmarked ? '<span style="color: var(--primary); font-size: 0.78rem;" title="Bookmarked">⚑</span>' : ''}
                 </button>
               `;
             }).join('')}
@@ -2155,8 +2274,141 @@ class TutorAIApp {
       if (firstLes) this.currentLessonId = firstLes.id;
     }
 
-    if (this.currentLessonId) {
+    if (!skipLessonLoad && this.currentLessonId) {
       this.loadLesson(this.currentLessonId, false);
+    }
+  }
+
+  async runCourseConsistencyAudit() {
+    const course = window.realmDB.objects('Course').find(c => c.id === this.currentCourseId);
+    const box = document.getElementById('courseConsistencyAuditBox');
+    const btn = document.getElementById('btnRunConsistencyAudit');
+    if (!course || !box) return;
+
+    box.style.display = 'block';
+    box.innerHTML = `<div style="background: #FFF9F7; border: 1px solid rgba(249, 87, 56, 0.3); border-radius: 14px; padding: 18px; text-align: center; color: var(--slate);">
+      <div class="pers-spinner" style="margin: 0 auto 10px;"></div>
+      Auditing curriculum coherence, module progression, and learning outcomes for <strong>${this.escapeHtml(course.title)}</strong>...
+    </div>`;
+    if (btn) btn.disabled = true;
+
+    try {
+      const ordered = this.getOrderedCourseLessons(course.id);
+      const lessonsSummaryList = ordered.map(item => ({
+        moduleTitle: item.module.title,
+        lessonTitle: item.lesson.title,
+        excerpt: String(item.lesson.contentMarkdown || item.lesson.summary || '').slice(0, 200)
+      }));
+
+      const audit = await window.tutorAIEngine.reviewCourseConsistency({
+        courseTitle: course.title,
+        language: course.language || 'English',
+        lessonsSummaryList
+      });
+
+      window.realmDB.write(() => {
+        course.consistencyAuditJson = JSON.stringify(audit);
+      });
+
+      box.innerHTML = `
+        <div style="background: #F0FDF4; border: 1.5px solid #BBF7D0; border-radius: 14px; padding: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+            <div>
+              <span style="background: #16A34A; color: #FFFFFF; font-size: 0.75rem; font-weight: 800; padding: 4px 10px; border-radius: 999px; margin-right: 8px;">
+                ✓ ${this.escapeHtml(audit.status || 'Verified')}
+              </span>
+              <strong style="color: #14532D; font-size: 1rem;">Academic Quality & Coherence Score: ${audit.coherenceScore || 95}/100</strong>
+            </div>
+            <button type="button" class="btn-secondary btn-sm-outline" onclick="document.getElementById('courseConsistencyAuditBox').style.display='none';">Close</button>
+          </div>
+          <p style="font-size: 0.92rem; color: #166534; line-height: 1.65; margin-bottom: 10px;">${this.escapeHtml(audit.summary)}</p>
+          ${Array.isArray(audit.recommendations) && audit.recommendations.length > 0 ? `
+            <div style="background: #FFFFFF; border-radius: 10px; padding: 12px 16px; border: 1px solid #DCFCE7;">
+              <div style="font-size: 0.8rem; font-weight: 800; color: #15803D; margin-bottom: 6px;">📌 Study Recommendations:</div>
+              <ul style="margin: 0; padding-inline-start: 18px; font-size: 0.86rem; color: #334155;">
+                ${audit.recommendations.map(r => `<li style="margin-bottom: 4px;">${this.escapeHtml(r)}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+        </div>
+      `;
+      this.showToast(`✓ Consistency Audit complete (${audit.coherenceScore || 95}/100)`);
+    } catch (e) {
+      box.innerHTML = `<div style="padding: 16px; color: #DC2626;">⚠️ Audit error: ${this.escapeHtml(e.message)}</div>`;
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  openCourseCertificateView() {
+    const course = window.realmDB.objects('Course').find(c => c.id === this.currentCourseId);
+    const box = document.getElementById('courseCertificateBox');
+    if (!course || !box) return;
+
+    const ordered = this.getOrderedCourseLessons(course.id);
+    const completedCount = ordered.filter(i => i.lesson.isCompleted).length;
+    const totalCount = ordered.length || 1;
+    const pct = Math.round((completedCount / totalCount) * 100);
+    const learnerName = this.currentUser?.fullName || 'Dedicated Learner';
+    const issueDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const certCode = `TAI-${course.id.slice(-6).toUpperCase()}-${new Date().getFullYear()}`;
+
+    box.style.display = 'block';
+    box.innerHTML = `
+      <div class="tutorai-certificate-card" id="printableCertificateCard">
+        <div class="cert-inner-border">
+          <div class="cert-top-badge">🎓 TUTORAI ACADEMIC CERTIFICATE OF ACHIEVEMENT</div>
+          <h2 class="cert-recipient-name">${this.escapeHtml(learnerName)}</h2>
+          <p class="cert-sub-text">has successfully studied and demonstrated mastery in the curriculum</p>
+          <h3 class="cert-course-title">${this.escapeHtml(course.title)}</h3>
+          <div class="cert-meta-row">
+            <div><strong>Completion:</strong> ${pct}% (${completedCount}/${totalCount} Lessons)</div>
+            <div><strong>Date Issued:</strong> ${this.escapeHtml(issueDate)}</div>
+            <div><strong>Credential ID:</strong> <code>${this.escapeHtml(certCode)}</code></div>
+          </div>
+          <div class="cert-actions-row">
+            <button type="button" class="btn-primary" id="btnPrintCertificateNow" style="padding: 8px 20px; font-size: 0.88rem;">🖨️ Print / Save PDF</button>
+            <button type="button" class="btn-secondary btn-sm-outline" onclick="document.getElementById('courseCertificateBox').style.display='none';">Close</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('btnPrintCertificateNow')?.addEventListener('click', () => {
+      window.print();
+    });
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  toggleLessonNotesPanel() {
+    const panel = document.getElementById('lessonNotesPanel');
+    const textarea = document.getElementById('lessonNotesTextarea');
+    const lesson = window.realmDB.objects('Lesson').find(l => l.id === this.currentLessonId);
+    if (!panel || !lesson) return;
+
+    const isHidden = panel.style.display === 'none';
+    panel.style.display = isHidden ? 'block' : 'none';
+    if (isHidden && textarea) {
+      textarea.value = lesson.userNotes || '';
+      textarea.focus();
+    }
+  }
+
+  saveCurrentLessonNotes(showNotification = false) {
+    const lesson = window.realmDB.objects('Lesson').find(l => l.id === this.currentLessonId);
+    const textarea = document.getElementById('lessonNotesTextarea');
+    const statusEl = document.getElementById('lessonNotesSaveStatus');
+    if (!lesson || !textarea) return;
+
+    const val = textarea.value;
+    window.realmDB.write(() => {
+      lesson.userNotes = val;
+    });
+    if (statusEl) {
+      statusEl.textContent = `✓ Saved (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+    }
+    if (showNotification) {
+      this.showToast('📝 Study notes saved to this lesson.');
     }
   }
 
@@ -2339,6 +2591,20 @@ class TutorAIApp {
       resultsPanel.innerHTML = '';
     }
 
+    // Sync Bookmark button & Study Notes textarea for current lesson
+    const bookmarkBtn = document.getElementById('btnBookmarkLesson');
+    if (bookmarkBtn) {
+      bookmarkBtn.classList.toggle('active', Boolean(lesson.isBookmarked));
+    }
+    const notesBtn = document.getElementById('btnToggleLessonNotes');
+    if (notesBtn) {
+      notesBtn.textContent = lesson.userNotes && lesson.userNotes.trim() ? '📝 Notes (Saved)' : '📝 Study Notes';
+    }
+    const notesTextarea = document.getElementById('lessonNotesTextarea');
+    if (notesTextarea) {
+      notesTextarea.value = lesson.userNotes || '';
+    }
+
     this.updateBottomNavState(lesson);
 
     // Lazy Loading Lesson Generation if contentMarkdown is empty
@@ -2405,7 +2671,7 @@ class TutorAIApp {
     await this.switchLessonTab('content');
 
     if (shouldRebuildSidebar) {
-      this.renderCourseWorkspace();
+      this.renderCourseWorkspace(true);
     }
   }
 
@@ -2521,7 +2787,17 @@ class TutorAIApp {
           return;
         }
       }
-      simplifyBody.innerHTML = this.renderMarkdown(lesson.simplifiedMarkdown);
+      simplifyBody.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border);">
+          <span style="font-size: 0.82rem; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.04em;">🪄 Intuitive Breakdown & Real-Life Analogy</span>
+          <button type="button" class="btn-util-pill" id="btnRegenSimplifyTab">🔄 Regenerate Analogy</button>
+        </div>
+        <div>${this.renderMarkdown(lesson.simplifiedMarkdown)}</div>
+      `;
+      simplifyBody.querySelector('#btnRegenSimplifyTab')?.addEventListener('click', async () => {
+        window.realmDB.write(() => { lesson.simplifiedMarkdown = null; });
+        await this.switchLessonTab('simplify');
+      });
     } else if (tabName === 'quiz') {
       const quizBody = document.getElementById('lessonTabQuizBody');
       if (!quizBody) return;
@@ -2535,20 +2811,24 @@ class TutorAIApp {
         try {
           questions = await window.tutorAIEngine.generateQuiz(lesson.contentMarkdown, lesson.title, language);
           window.realmDB.write(() => {
-            window.realmDB.create('LessonQuiz', {
-              id: 'quiz_' + lesson.id,
-              lessonId: lesson.id,
-              questionsJson: JSON.stringify(questions),
-              userScore: null,
-              completedAt: null
-            });
+            if (quiz) {
+              quiz.questionsJson = JSON.stringify(questions);
+            } else {
+              quiz = window.realmDB.create('LessonQuiz', {
+                id: 'quiz_' + lesson.id,
+                lessonId: lesson.id,
+                questionsJson: JSON.stringify(questions),
+                userScore: null,
+                completedAt: null
+              });
+            }
           });
         } catch (e) {
           quizBody.innerHTML = `<div style="color: #DC2626;">⚠️ ${this.escapeHtml(e.message)}</div>`;
           return;
         }
       }
-      this.renderTutorAIQuizTab(questions, quizBody);
+      this.renderTutorAIQuizTab(questions, quizBody, quiz);
     } else if (tabName === 'examples') {
       const examplesBody = document.getElementById('lessonTabExamplesBody');
       if (!examplesBody) return;
@@ -2564,15 +2844,23 @@ class TutorAIApp {
           return;
         }
       }
-      this.renderTutorAIExamplesTab(lesson.examplesMarkdown, examplesBody);
+      this.renderTutorAIExamplesTab(lesson.examplesMarkdown, examplesBody, lesson);
     }
   }
 
-  renderTutorAIQuizTab(questions, container) {
+  renderTutorAIQuizTab(questions, container, quizObj = null) {
     if (!container || !Array.isArray(questions) || questions.length === 0) return;
     const letters = ['a', 'b', 'c', 'd'];
+    const prevScoreBadge = (quizObj && quizObj.userScore !== null && quizObj.userScore !== undefined)
+      ? `<span style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; padding: 4px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 800;">✓ Last Score: ${quizObj.userScore}%</span>`
+      : `<span style="font-size: 0.84rem; color: var(--slate-light); font-weight: 600;">${questions.length} Multiple-Choice Questions</span>`;
 
-    container.innerHTML = questions.map((q, qIdx) => `
+    container.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+        ${prevScoreBadge}
+        <button type="button" class="btn-util-pill" id="btnRegenQuizTab">🔄 New Quiz Questions</button>
+      </div>
+    ` + questions.map((q, qIdx) => `
       <div class="tutorai-quiz-card" data-q-idx="${qIdx}">
         <div class="tutorai-quiz-q-title">${qIdx + 1}. ${this.escapeHtml(q.question)}</div>
         <div class="tutorai-quiz-options">
@@ -2592,6 +2880,13 @@ class TutorAIApp {
       <div id="tutoraiQuizSummaryBanner" style="display: none; padding: 16px; border-radius: 12px; text-align: center; font-weight: 800;"></div>
       <button type="button" class="btn-submit-tutorai-quiz" id="btnSubmitTutorAIQuiz">Submit Quiz</button>
     `;
+
+    container.querySelector('#btnRegenQuizTab')?.addEventListener('click', async () => {
+      if (quizObj) {
+        window.realmDB.write(() => { quizObj.questionsJson = '[]'; });
+      }
+      await this.switchLessonTab('quiz');
+    });
 
     const submitBtn = container.querySelector('#btnSubmitTutorAIQuiz');
     submitBtn?.addEventListener('click', () => {
@@ -2630,43 +2925,63 @@ class TutorAIApp {
         }
       });
 
+      const pct = Math.round((correctCount / questions.length) * 100);
+      if (quizObj) {
+        window.realmDB.write(() => {
+          quizObj.userScore = pct;
+          quizObj.completedAt = new Date().toISOString();
+        });
+      }
+
       const summaryBanner = container.querySelector('#tutoraiQuizSummaryBanner');
       if (summaryBanner) {
-        const pct = Math.round((correctCount / questions.length) * 100);
         summaryBanner.style.display = 'block';
         summaryBanner.style.background = pct >= 70 ? '#F0FDF4' : '#FEF3C7';
         summaryBanner.style.color = pct >= 70 ? '#166534' : '#92400E';
         summaryBanner.textContent = `Quiz Score: ${correctCount} / ${questions.length} (${pct}%)`;
       }
-      this.showToast(`Quiz graded: ${correctCount}/${questions.length} correct!`);
+      this.showToast(`Quiz graded: ${correctCount}/${questions.length} (${pct}%)!`);
     });
   }
 
-  renderTutorAIExamplesTab(examplesMarkdown, container) {
+  renderTutorAIExamplesTab(examplesMarkdown, container, lesson = null) {
     if (!container) return;
     const src = String(examplesMarkdown || '').replace(/\r\n/g, '\n');
     const blocks = src.split(/(?=^###\s+)/m).map(b => b.trim()).filter(Boolean);
 
+    const topBar = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span style="font-size: 0.84rem; color: var(--slate-light); font-weight: 600;">Concrete Applied Case Examples</span>
+        <button type="button" class="btn-util-pill" id="btnRegenExamplesTab">🔄 Generate Fresh Examples</button>
+      </div>
+    `;
+
     if (blocks.length === 0) {
-      container.innerHTML = `<div class="example-concept-card"><div class="example-concept-body">${this.renderMarkdown(src)}</div></div>`;
-      return;
+      container.innerHTML = topBar + `<div class="example-concept-card"><div class="example-concept-body">${this.renderMarkdown(src)}</div></div>`;
+    } else {
+      container.innerHTML = topBar + blocks.map(block => {
+        const m = block.match(/^###\s+([^\n]+)\n?([\s\S]*)$/);
+        if (!m) {
+          return `<div class="example-concept-card"><div class="example-concept-body">${this.renderMarkdown(block)}</div></div>`;
+        }
+        const rawHeading = m[1].replace(/^concept\s*:\s*/i, '').trim();
+        const bodyMd = (m[2] || '').trim();
+        return `
+          <div class="example-concept-card">
+            <div class="example-concept-label">concept</div>
+            <div class="example-concept-title">${this.escapeHtml(rawHeading)}</div>
+            <div class="example-concept-body">${this.renderMarkdown(bodyMd)}</div>
+          </div>
+        `;
+      }).join('');
     }
 
-    container.innerHTML = blocks.map(block => {
-      const m = block.match(/^###\s+([^\n]+)\n?([\s\S]*)$/);
-      if (!m) {
-        return `<div class="example-concept-card"><div class="example-concept-body">${this.renderMarkdown(block)}</div></div>`;
+    container.querySelector('#btnRegenExamplesTab')?.addEventListener('click', async () => {
+      if (lesson) {
+        window.realmDB.write(() => { lesson.examplesMarkdown = null; });
+        await this.switchLessonTab('examples');
       }
-      const rawHeading = m[1].replace(/^concept\s*:\s*/i, '').trim();
-      const bodyMd = (m[2] || '').trim();
-      return `
-        <div class="example-concept-card">
-          <div class="example-concept-label">concept</div>
-          <div class="example-concept-title">${this.escapeHtml(rawHeading)}</div>
-          <div class="example-concept-body">${this.renderMarkdown(bodyMd)}</div>
-        </div>
-      `;
-    }).join('');
+    });
   }
 
   renderKeyTakeawaysCard() {
@@ -2809,6 +3124,25 @@ class TutorAIApp {
     if (subTitle && lesson) {
       subTitle.innerText = `Context: ${lesson.title}`;
     }
+
+    const scrollBox = document.getElementById('chatMessagesScroll');
+    if (scrollBox && lesson) {
+      const history = this.chatHistoryByLesson[lesson.id];
+      if (Array.isArray(history) && history.length > 0) {
+        scrollBox.innerHTML = history.map(item => `
+          <div class="chat-msg ${item.role === 'user' ? 'user' : 'bot'}">
+            ${item.role === 'user' ? this.escapeHtml(item.text) : this.renderMarkdown(item.text)}
+          </div>
+        `).join('');
+      } else {
+        scrollBox.innerHTML = `
+          <div class="chat-msg bot">
+            Hello! I am your AI Personal Tutor for <strong>${this.escapeHtml(lesson.title)}</strong>. Ask me anything or click one of the quick study prompts below!
+          </div>
+        `;
+      }
+      scrollBox.scrollTop = scrollBox.scrollHeight;
+    }
   }
 
   closeChatDrawer() {
@@ -2824,6 +3158,13 @@ class TutorAIApp {
     if (!text) return;
     input.value = '';
 
+    const lesson = window.realmDB.objects('Lesson').find(l => l.id === this.currentLessonId);
+    const lessonKey = lesson?.id || 'default';
+    if (!this.chatHistoryByLesson[lessonKey]) {
+      this.chatHistoryByLesson[lessonKey] = [];
+    }
+    this.chatHistoryByLesson[lessonKey].push({ role: 'user', text });
+
     const userMsg = document.createElement('div');
     userMsg.className = 'chat-msg user';
     userMsg.innerText = text;
@@ -2837,12 +3178,12 @@ class TutorAIApp {
     scrollBox.scrollTop = scrollBox.scrollHeight;
 
     try {
-      const lesson = window.realmDB.objects('Lesson').find(l => l.id === this.currentLessonId);
       const reply = await window.tutorAIEngine.answerLessonQuestion(
         text,
         lesson?.title || 'Lesson',
         lesson?.contentMarkdown || ''
       );
+      this.chatHistoryByLesson[lessonKey].push({ role: 'bot', text: reply });
       botMsg.innerHTML = this.renderMarkdown(reply);
     } catch (err) {
       botMsg.innerHTML = `<span style="color: #DC2626;">Error: ${this.escapeHtml(err.message)}</span>`;
@@ -2921,16 +3262,126 @@ class TutorAIApp {
   getUserFlashcards() {
     const uid = this.currentUser?.id || 'usr_default_learner';
     const all = window.realmDB.objects('Flashcard').items;
-    const filtered = all.filter(fc => fc.userId === uid || (uid === 'usr_default_learner' && !fc.userId));
-    return filtered.length > 0 ? filtered : all;
+    const userCards = all.filter(fc => fc.userId === uid || (uid === 'usr_default_learner' && !fc.userId));
+    const baseDeck = userCards.length > 0 ? userCards : all;
+    if (this.selectedFlashcardCourseFilter && this.selectedFlashcardCourseFilter !== 'all') {
+      return baseDeck.filter(fc => fc.courseId === this.selectedFlashcardCourseFilter);
+    }
+    return baseDeck;
+  }
+
+  populateFlashcardCourseFilterDropdown() {
+    const selectEl = document.getElementById('fcCourseFilterSelect');
+    if (!selectEl) return;
+    const courses = this.getUserCourses();
+    const currentVal = this.selectedFlashcardCourseFilter || 'all';
+    selectEl.innerHTML = `<option value="all">All Courses (Complete Deck)</option>` + courses.map(c => `
+      <option value="${this.escapeHtml(c.id)}" ${c.id === currentVal ? 'selected' : ''}>${this.escapeHtml(c.title)}</option>
+    `).join('');
   }
 
   initFlashcardsView() {
+    this.populateFlashcardCourseFilterDropdown();
     this.flashcardsQueue = this.getUserFlashcards();
     this.currentFlashcardIndex = 0;
     this.isCardFlipped = false;
     this.renderFlashcardStats();
     this.renderCurrentFlashcard();
+  }
+
+  handleCreateCustomFlashcard() {
+    const frontInput = document.getElementById('fcNewFrontInput');
+    const backInput = document.getElementById('fcNewBackInput');
+    const frontPrompt = frontInput?.value.trim() || '';
+    const backAnswer = backInput?.value.trim() || '';
+    if (!frontPrompt || !backAnswer) {
+      this.showToast('Please enter both the Front Prompt and Back Answer.');
+      return;
+    }
+
+    const targetCourseId = (this.selectedFlashcardCourseFilter && this.selectedFlashcardCourseFilter !== 'all')
+      ? this.selectedFlashcardCourseFilter
+      : (this.currentCourseId || 'course_ai_foundations');
+
+    let newCard = null;
+    window.realmDB.write(() => {
+      newCard = window.realmDB.create('Flashcard', {
+        id: 'fc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        userId: this.currentUser?.id || 'usr_default_learner',
+        courseId: targetCourseId,
+        lessonId: this.currentLessonId || null,
+        frontPrompt,
+        backAnswer,
+        easinessFactor: 2.5,
+        intervalDays: 0,
+        repetitions: 0,
+        nextReviewAt: new Date().toISOString()
+      });
+    });
+
+    if (window.firebaseBridge && window.firebaseBridge.currentUser && newCard) {
+      window.firebaseBridge.syncFlashcard(newCard).catch(console.error);
+    }
+
+    if (frontInput) frontInput.value = '';
+    if (backInput) backInput.value = '';
+    const panel = document.getElementById('fcAddCardPanel');
+    if (panel) panel.style.display = 'none';
+
+    this.initFlashcardsView();
+    this.showToast('✓ Custom flashcard added to your deck!');
+  }
+
+  async handleAiGenerateDeckCards() {
+    const btn = document.getElementById('btnAiGenerateDeckCards');
+    const targetCourseId = (this.selectedFlashcardCourseFilter && this.selectedFlashcardCourseFilter !== 'all')
+      ? this.selectedFlashcardCourseFilter
+      : (this.currentCourseId || 'course_ai_foundations');
+    const course = window.realmDB.objects('Course').find(c => c.id === targetCourseId)
+      || window.realmDB.objects('Course').items[0];
+    if (!course) return;
+
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '⏳ Generating...';
+    }
+
+    try {
+      const ordered = this.getOrderedCourseLessons(course.id);
+      const sampleLesson = ordered[0]?.lesson;
+      const cards = await window.tutorAIEngine.generateFlashcardsForLesson(
+        sampleLesson?.title || course.title,
+        sampleLesson?.contentMarkdown || course.description || course.title,
+        course.language || 'English'
+      );
+
+      window.realmDB.write(() => {
+        cards.forEach(card => {
+          window.realmDB.create('Flashcard', {
+            id: 'fc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+            userId: this.currentUser?.id || 'usr_default_learner',
+            courseId: course.id,
+            lessonId: sampleLesson?.id || null,
+            frontPrompt: card.frontPrompt,
+            backAnswer: card.backAnswer,
+            easinessFactor: 2.5,
+            intervalDays: 0,
+            repetitions: 0,
+            nextReviewAt: new Date().toISOString()
+          });
+        });
+      });
+
+      this.initFlashcardsView();
+      this.showToast(`✓ Generated ${cards.length} AI flashcards for "${course.title}"!`);
+    } catch (e) {
+      this.showToast(`Flashcard generation error: ${e.message}`);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '✨ AI Generate Cards';
+      }
+    }
   }
 
   renderFlashcardStats() {
@@ -2954,10 +3405,12 @@ class TutorAIApp {
     const inner = document.getElementById('flashcardInner');
     const promptText = document.getElementById('flipCardPrompt');
     const answerText = document.getElementById('flipCardAnswer');
+    const posBadge = document.getElementById('fcCardPositionBadge');
 
     if (!this.flashcardsQueue || this.flashcardsQueue.length === 0) {
-      if (promptText) promptText.innerText = 'No flashcards in your deck yet.';
-      if (answerText) answerText.innerText = 'Generate flashcards from any course lesson using the Flashcards button!';
+      if (promptText) promptText.innerText = 'No flashcards in this deck yet.';
+      if (answerText) answerText.innerText = 'Click "✨ AI Generate Cards" or "+ Add Card" above to populate this deck!';
+      if (posBadge) posBadge.innerText = '0 Cards';
       return;
     }
 
@@ -2969,6 +3422,9 @@ class TutorAIApp {
     this.isCardFlipped = false;
     if (inner) inner.classList.remove('flipped');
 
+    if (posBadge) {
+      posBadge.innerText = `Card ${this.currentFlashcardIndex + 1} of ${this.flashcardsQueue.length}`;
+    }
     if (promptText) promptText.innerText = currentCard.frontPrompt;
     if (answerText) answerText.innerText = currentCard.backAnswer;
   }
@@ -3117,12 +3573,32 @@ class TutorAIApp {
     if (!container) return;
     container.innerHTML = '';
 
-    const courses = this.getUserCourses();
+    let courses = this.getUserCourses();
+    const query = String(this.librarySearchQuery || '').trim().toLowerCase();
+    const filter = this.libraryStatusFilter || 'all';
+
+    if (query) {
+      courses = courses.filter(c =>
+        String(c.title || '').toLowerCase().includes(query) ||
+        String(c.description || '').toLowerCase().includes(query) ||
+        String(c.topicPrompt || '').toLowerCase().includes(query) ||
+        String(c.language || '').toLowerCase().includes(query)
+      );
+    }
+
+    if (filter === 'in-progress') {
+      courses = courses.filter(c => (c.progressPercentage || 0) > 0 && (c.progressPercentage || 0) < 100);
+    } else if (filter === 'completed') {
+      courses = courses.filter(c => (c.progressPercentage || 0) >= 100);
+    } else if (filter === 'custom') {
+      courses = courses.filter(c => !c.isPublicFeatured);
+    }
+
     if (courses.length === 0) {
       container.innerHTML = `
         <div style="grid-column: 1 / -1; background: #FFFFFF; border: 1px solid var(--border); border-radius: 16px; padding: 40px; text-align: center;">
-          <h3 style="color: var(--navy); margin-bottom: 8px;">Your Personal Course Library is Empty</h3>
-          <p style="color: var(--slate-light); margin-bottom: 20px;">Create your first custom AI course or explore the 9 Free Curated Starter Courses.</p>
+          <h3 style="color: var(--navy); margin-bottom: 8px;">No Matching Courses Found</h3>
+          <p style="color: var(--slate-light); margin-bottom: 20px;">Create a new custom AI course, adjust your search filter, or import a JSON course archive.</p>
           <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
             <button class="btn-primary" onclick="window.tutorApp.navigateTo('create-course')">+ Create AI Course</button>
             <button class="btn-secondary" onclick="window.tutorApp.navigateTo('free-online-courses')">Explore Starter Courses</button>
@@ -3137,11 +3613,12 @@ class TutorAIApp {
       card.className = 'free-course-card';
       const progress = Math.round(c.progressPercentage || 0);
       const isDraft = c.status === 'draft';
+      const canDelete = !c.isPublicFeatured;
 
       card.innerHTML = `
         <div class="course-card-banner banner-ai" style="position: relative;">
           <span>📚</span>
-          <span style="position: absolute; top: 10px; right: 10px; font-size: 0.7rem; font-weight: 800; padding: 3px 8px; border-radius: 999px; background: ${isDraft ? '#FEF3C7' : 'rgba(255,255,255,0.9)'}; color: ${isDraft ? '#92400E' : '#4F46E5'};">
+          <span style="position: absolute; top: 10px; right: 10px; font-size: 0.7rem; font-weight: 800; padding: 3px 8px; border-radius: 999px; background: ${isDraft ? '#FEF3C7' : 'rgba(255,255,255,0.9)'}; color: ${isDraft ? '#92400E' : 'var(--primary)'};">
             ${isDraft ? 'DRAFT' : (c.learnerLevel || 'COURSE').toUpperCase()}
           </span>
         </div>
@@ -3149,22 +3626,104 @@ class TutorAIApp {
           <div class="course-card-title">${this.escapeHtml(c.title)}</div>
           <div class="course-card-desc">${this.escapeHtml(c.description || c.topicPrompt)}</div>
           <div style="margin-bottom: 16px;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700; color: #4F46E5; margin-bottom: 4px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700; color: var(--primary); margin-bottom: 4px;">
               <span>Progress</span>
               <span>${progress}%</span>
             </div>
             <div style="height: 6px; background: #E2E8F0; border-radius: 99px; overflow: hidden;">
-              <div style="height: 100%; width: ${progress}%; background: #4F46E5;"></div>
+              <div style="height: 100%; width: ${progress}%; background: var(--primary);"></div>
             </div>
           </div>
           <div style="display: flex; gap: 8px;">
             <button class="btn-primary" style="flex: 1;" onclick="window.tutorApp.viewCourseById('${c.id}')">Open Course</button>
             <button class="btn-secondary" onclick="window.tutorApp.exportCourse('${c.id}')" title="Export Course JSON">💾</button>
+            ${canDelete ? `<button class="btn-secondary" onclick="window.tutorApp.deleteCourseById('${c.id}')" title="Delete Course" style="color: #DC2626; border-color: #FECACA;">🗑️</button>` : ''}
           </div>
         </div>
       `;
       container.appendChild(card);
     });
+  }
+
+  deleteCourseById(courseId) {
+    const course = window.realmDB.objects('Course').find(c => c.id === courseId);
+    if (!course) return;
+    const title = course.title;
+
+    window.realmDB.write(() => {
+      const modules = window.realmDB.objects('Module').filtered(m => m.courseId === courseId);
+      modules.forEach(mod => {
+        const lessons = window.realmDB.objects('Lesson').filtered(l => l.moduleId === mod.id);
+        lessons.forEach(les => {
+          const quizzes = window.realmDB.objects('LessonQuiz').filtered(q => q.lessonId === les.id);
+          quizzes.forEach(q => window.realmDB.delete(q));
+          window.realmDB.delete(les);
+        });
+        window.realmDB.delete(mod);
+      });
+      const flashcards = window.realmDB.objects('Flashcard').filtered(fc => fc.courseId === courseId);
+      flashcards.forEach(fc => window.realmDB.delete(fc));
+      window.realmDB.delete(course);
+    });
+
+    if (this.currentCourseId === courseId) {
+      this.currentCourseId = 'course_ai_foundations';
+      this.currentLessonId = null;
+    }
+    this.renderLibraryView();
+    this.showToast(`🗑️ Deleted course "${title}".`);
+  }
+
+  handleImportCourseJsonFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(String(reader.result || '{}'));
+        if (!data.course || !Array.isArray(data.modules)) {
+          this.showToast('⚠️ Invalid course JSON file format.');
+          return;
+        }
+        const newCourseId = 'course_imp_' + Date.now();
+        const modIdMap = {};
+
+        window.realmDB.write(() => {
+          window.realmDB.create('Course', {
+            ...data.course,
+            id: newCourseId,
+            userId: this.currentUser?.id || 'usr_default_learner',
+            isPublicFeatured: false,
+            createdAt: new Date()
+          });
+
+          (data.modules || []).forEach((m, idx) => {
+            const newModId = `mod_${newCourseId}_${idx + 1}`;
+            modIdMap[m.id] = newModId;
+            window.realmDB.create('Module', {
+              ...m,
+              id: newModId,
+              courseId: newCourseId
+            });
+          });
+
+          (data.lessons || []).forEach((l, idx) => {
+            const mappedModId = modIdMap[l.moduleId] || Object.values(modIdMap)[0];
+            if (mappedModId) {
+              window.realmDB.create('Lesson', {
+                ...l,
+                id: `les_${newCourseId}_${idx + 1}`,
+                moduleId: mappedModId
+              });
+            }
+          });
+        });
+
+        this.renderLibraryView();
+        this.showToast(`✓ Imported course "${data.course.title}" into your library!`);
+      } catch (e) {
+        this.showToast(`⚠️ Failed to import JSON: ${e.message}`);
+      }
+    };
+    reader.readAsText(file);
   }
 
   renderProfileView() {

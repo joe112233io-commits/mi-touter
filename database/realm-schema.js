@@ -139,6 +139,8 @@ const LessonSchema = {
     generationStatus: { type: 'string', default: 'completed' }, // pending, generating, completed, failed
     lastError: 'string?',
     audioUrl: 'string?',
+    isBookmarked: { type: 'bool', default: false },
+    userNotes: 'string?',
     isCompleted: { type: 'bool', default: false },
     completedAt: 'date?'
   }

@@ -661,6 +661,20 @@
               <button class="suggested-btn" data-topic="Quantum Computing">Quantum Computing</button>
             </div>
           </div>
+
+          <!-- Active AI Provider Engine Bar (Synced with AI Providers settings) -->
+          <div class="creator-ai-engine-bar">
+            <div class="creator-ai-engine-left">
+              <span class="creator-ai-label">⚡ AI Engine:</span>
+              <select id="courseCreatorProviderSelect" class="tutorai-soft-input creator-ai-select" aria-label="Select AI Provider for Course Generation">
+                <option value="builtin_gemini">✨ Google Gemini (Built-in Server Default)</option>
+              </select>
+              <span id="courseCreatorProviderStatus" class="creator-ai-status">Ready</span>
+            </div>
+            <button type="button" class="btn-inline-ai-chip" onclick="window.tutorApp.navigateTo('ai-providers')">
+              ⚙️ Configure API Keys
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -687,10 +701,20 @@
             <button type="button" class="btn-secondary btn-sm-outline" id="btnGenerateAllCourseLessons">
               ⚡ Pre-Generate All Lessons
             </button>
+            <button type="button" class="btn-secondary btn-sm-outline" id="btnRunConsistencyAudit">
+              🔍 Consistency Audit
+            </button>
+            <button type="button" class="btn-secondary btn-sm-outline" id="btnOpenCourseCertificate">
+              🎓 Certificate
+            </button>
             <button type="button" class="btn-secondary btn-sm-outline" id="btnExportCurrentCourse">
               💾 Export Course JSON
             </button>
           </div>
+
+          <!-- Dynamic Consistency Audit & Certificate Panels -->
+          <div id="courseConsistencyAuditBox" style="display: none; margin-bottom: 20px;"></div>
+          <div id="courseCertificateBox" style="display: none; margin-bottom: 20px;"></div>
 
           <div class="course-overview-progress-box">
             <div class="progress-header">
@@ -782,9 +806,25 @@
                 <button type="button" class="btn-util-pill" id="btnEditCurrentLesson" title="Edit Lesson Markdown">
                   ✏️ Edit Lesson
                 </button>
+                <button type="button" class="btn-util-pill" id="btnToggleLessonNotes" title="Personal Study Notes for this Lesson">
+                  📝 Study Notes
+                </button>
                 <button type="button" class="btn-util-pill" id="btnRegenerateCurrentLesson" title="Regenerate Lesson with AI">
                   🔄 Regenerate
                 </button>
+              </div>
+            </div>
+
+            <!-- Collapsible Personal Study Notes Panel -->
+            <div class="lesson-notes-panel" id="lessonNotesPanel" style="display: none;">
+              <div class="lesson-notes-header">
+                <span style="font-weight: 800; color: var(--navy); font-size: 0.9rem;">📝 Personal Study Notes</span>
+                <span id="lessonNotesSaveStatus" style="font-size: 0.78rem; color: var(--slate-light);">Saved automatically to your workspace</span>
+              </div>
+              <textarea id="lessonNotesTextarea" rows="4" placeholder="Write your key takeaways, formulas, questions, or personal reflections for this lesson..."></textarea>
+              <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+                <button type="button" class="btn-secondary btn-sm-outline" id="btnCloseLessonNotes">Close</button>
+                <button type="button" class="btn-primary" id="btnSaveLessonNotes" style="padding: 6px 16px; font-size: 0.84rem;">💾 Save Notes</button>
               </div>
             </div>
 
@@ -1058,6 +1098,41 @@
          ========================================================================== -->
     <section class="view-section" id="view-flashcards">
       <div class="flashcards-container">
+        <div class="fc-toolbar-bar">
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <label for="fcCourseFilterSelect" style="font-weight: 700; font-size: 0.88rem; color: var(--navy);">Deck:</label>
+            <select id="fcCourseFilterSelect" class="tutorai-soft-input" style="width: auto; min-width: 220px; padding: 8px 12px;">
+              <option value="all">All Courses (Complete Deck)</option>
+            </select>
+            <span class="brand-badge" id="fcCardPositionBadge" style="margin: 0;">Card 1 of 1</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn-secondary btn-sm-outline" id="btnPrevFlashcard" title="Previous Card">◀ Prev</button>
+            <button type="button" class="btn-secondary btn-sm-outline" id="btnNextFlashcard" title="Next Card">Next ▶</button>
+            <button type="button" class="btn-secondary btn-sm-outline" id="btnToggleAddFlashcardForm">+ Add Card</button>
+            <button type="button" class="btn-outline-ai" id="btnAiGenerateDeckCards" style="padding: 7px 14px; font-size: 0.84rem;">✨ AI Generate Cards</button>
+          </div>
+        </div>
+
+        <!-- Collapsible Add Custom Flashcard Form -->
+        <div id="fcAddCardPanel" style="display: none; background: #FFFFFF; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px; margin-bottom: 20px; box-shadow: var(--shadow-sm);">
+          <h4 style="font-size: 0.98rem; font-weight: 800; color: var(--navy); margin-bottom: 12px;">➕ Create New Active-Recall Flashcard</h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 12px;">
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: var(--slate); display: block; margin-bottom: 4px;">Front Prompt / Question *</label>
+              <input type="text" id="fcNewFrontInput" class="tutorai-soft-input" placeholder="e.g., What is the bias-variance tradeoff?">
+            </div>
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: var(--slate); display: block; margin-bottom: 4px;">Back Answer / Explanation *</label>
+              <input type="text" id="fcNewBackInput" class="tutorai-soft-input" placeholder="e.g., The balance between underfitting and overfitting...">
+            </div>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" class="btn-secondary btn-sm-outline" id="btnCancelNewFlashcard">Cancel</button>
+            <button type="button" class="btn-primary" id="btnSaveNewFlashcard" style="padding: 7px 18px; font-size: 0.85rem;">Save Card</button>
+          </div>
+        </div>
+
         <div class="fc-stats-row">
           <div class="fc-stat-card">
             <div class="num" id="fcDueCount">0</div>
@@ -1317,9 +1392,24 @@
         <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; text-align: left;">
           <div>
             <h1 class="section-title">My Learning Library</h1>
-            <p class="section-desc" style="margin: 0;">Manage your personal AI-generated courses, resume drafts, or export JSON archives.</p>
+            <p class="section-desc" style="margin: 0;">Manage your personal AI-generated courses, resume drafts, or export/import JSON archives.</p>
           </div>
-          <button class="btn-primary" onclick="window.tutorApp.navigateTo('create-course')">+ Create New Course</button>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button type="button" class="btn-secondary" id="btnImportCourseJson">📂 Import Course JSON</button>
+            <input type="file" id="importCourseJsonInput" accept=".json" style="display: none;">
+            <button class="btn-primary" onclick="window.tutorApp.navigateTo('create-course')">+ Create New Course</button>
+          </div>
+        </div>
+
+        <!-- Library Search & Filter Toolbar -->
+        <div class="library-filter-bar">
+          <input type="search" id="librarySearchInput" class="tutorai-soft-input" placeholder="🔍 Search courses by title, topic, or language..." style="flex: 1; min-width: 220px;">
+          <select id="libraryStatusFilter" class="tutorai-soft-input" style="width: auto; min-width: 170px;">
+            <option value="all">All Courses</option>
+            <option value="in-progress">In Progress</option>
+            <option value="completed">Completed (100%)</option>
+            <option value="custom">My AI Generated Courses</option>
+          </select>
         </div>
 
         <div class="free-courses-grid-9" id="myCoursesGrid"></div>
@@ -1499,6 +1589,13 @@
       <div class="chat-msg bot">
         Hello! I am your AI Tutor for this lesson. Ask me anything about the concepts, formulas, or practical exercises covered here!
       </div>
+    </div>
+
+    <div class="chat-quick-prompts-bar" id="chatQuickPromptsBar">
+      <button type="button" class="chat-quick-chip" data-prompt="Explain the main concept of this lesson in simple terms with a real-life analogy.">🪄 Simplify</button>
+      <button type="button" class="chat-quick-chip" data-prompt="Give me a practical step-by-step example of how to apply this lesson.">💡 Practical Example</button>
+      <button type="button" class="chat-quick-chip" data-prompt="Ask me a challenging Socratic question to test my understanding of this lesson.">🎯 Quiz Me</button>
+      <button type="button" class="chat-quick-chip" data-prompt="Summarize the 3 most important takeaways from this lesson.">📋 Key Summary</button>
     </div>
 
     <div class="chat-drawer-input">
