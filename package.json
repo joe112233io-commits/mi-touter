@@ -5,8 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "npx esbuild js/firebase-client.ts --bundle --outfile=js/firebase-bundle.js --format=iife --target=es2020 && node server.js",
-    "build": "npx esbuild js/firebase-client.ts --bundle --outfile=js/firebase-bundle.js --format=iife --target=es2020",
+    "dev": "npx esbuild js/firebase-client.ts --bundle --outfile=js/firebase-bundle.js --format=iife --target=es2020 && npx esbuild js/analytics.js --bundle --outfile=js/analytics-bundle.js --format=iife --target=es2020 && node server.js",
+    "build": "npx esbuild js/firebase-client.ts --bundle --outfile=js/firebase-bundle.js --format=iife --target=es2020 && npx esbuild js/analytics.js --bundle --outfile=js/analytics-bundle.js --format=iife --target=es2020",
     "lint": "npx eslint firestore.rules",
     "serve": "node server.js"
   },
@@ -23,6 +23,7 @@
   "license": "MIT",
   "dependencies": {
     "@google/genai": "^2.31.0",
+    "@vercel/analytics": "^2.0.1",
     "express": "^4.21.2",
     "firebase": "^13.1.0"
   },
