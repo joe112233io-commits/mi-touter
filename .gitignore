@@ -30,10 +30,11 @@ pnpm-debug.log*
 .env.*
 !.env.example
 
-# Runtime local data (localStorage exports / Realm snapshots)
+# Runtime local data (localStorage exports / Realm snapshots / Encrypted Key Vault)
 *.realm
 .tutorai/
 .tutorai-data/
+database/user-vault.enc.json
 
 # Editor & OS noise
 .vscode/

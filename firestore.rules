@@ -83,6 +83,50 @@ service cloud.firestore {
         data.updatedAt is timestamp;
     }
 
+    function isValidAIProviderMetadata(data) {
+      return isEmailVerified() &&
+        data.keys().hasAll([
+          'userId',
+          'name',
+          'providerType',
+          'protocol',
+          'baseUrl',
+          'modelId',
+          'maskedKey',
+          'isDefault',
+          'lastTestedStatus',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId',
+          'name',
+          'providerType',
+          'protocol',
+          'baseUrl',
+          'modelId',
+          'maskedKey',
+          'isDefault',
+          'lastTestedStatus',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.userId) &&
+        data.userId == request.auth.uid &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+        data.providerType is string && data.providerType.size() >= 2 && data.providerType.size() <= 40 &&
+        data.protocol is string && data.protocol.size() >= 5 && data.protocol.size() <= 40 &&
+        data.protocol in ['openai-compatible', 'gemini-native', 'gemini-server', 'anthropic-messages', 'custom-rest'] &&
+        data.baseUrl is string && data.baseUrl.size() >= 0 && data.baseUrl.size() <= 300 &&
+        data.modelId is string && data.modelId.size() >= 1 && data.modelId.size() <= 120 &&
+        data.maskedKey is string && data.maskedKey.size() >= 1 && data.maskedKey.size() <= 40 &&
+        data.isDefault is bool &&
+        data.lastTestedStatus is string && data.lastTestedStatus.size() >= 6 && data.lastTestedStatus.size() <= 20 &&
+        data.lastTestedStatus in ['untested', 'verified', 'failed'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
     function isValidCourse(data) {
       return isEmailVerified() &&
         data.keys().hasAll([
@@ -287,7 +331,6 @@ service cloud.firestore {
         incoming().userId == existing().userId &&
         incoming().createdAt == existing().createdAt &&
         incoming().updatedAt == request.time && (
-          // Action: Update Plan or Course Generation Counter or Preferences
           incoming().diff(existing()).affectedKeys().hasOnly([
             'fullName',
             'planTier',
@@ -300,7 +343,38 @@ service cloud.firestore {
       allow delete: if isOwner(userId) && isValidId(userId) && existing().userId == request.auth.uid;
     }
 
-    // 2. Courses (/courses/{courseId})
+    // 2. AI Provider Metadata (/aiProviders/{providerId})
+    match /aiProviders/{providerId} {
+      allow get: if isEmailVerified() && isValidId(providerId) && existing().userId == request.auth.uid;
+      allow list: if isEmailVerified() && existing().userId == request.auth.uid;
+      allow create: if isEmailVerified() &&
+        isValidId(providerId) &&
+        isValidAIProviderMetadata(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidAIProviderMetadata(incoming()) &&
+        isEmailVerified() &&
+        isValidId(providerId) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'name',
+            'providerType',
+            'protocol',
+            'baseUrl',
+            'modelId',
+            'maskedKey',
+            'isDefault',
+            'lastTestedStatus',
+            'updatedAt'
+          ])
+        );
+      allow delete: if isEmailVerified() && isValidId(providerId) && existing().userId == request.auth.uid;
+    }
+
+    // 3. Courses (/courses/{courseId})
     match /courses/{courseId} {
       allow get: if isEmailVerified() && isValidId(courseId) && existing().userId == request.auth.uid;
       allow list: if isEmailVerified() && existing().userId == request.auth.uid;
@@ -316,15 +390,13 @@ service cloud.firestore {
         incoming().userId == existing().userId &&
         incoming().createdAt == existing().createdAt &&
         incoming().updatedAt == request.time && (
-          // Action: Update Course Progress
           incoming().diff(existing()).affectedKeys().hasOnly(['progressPercentage', 'updatedAt']) ||
-          // Action: Update Course Metadata
           incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'learnerLevel', 'progressPercentage', 'updatedAt'])
         );
       allow delete: if isEmailVerified() && isValidId(courseId) && existing().userId == request.auth.uid;
     }
 
-    // 3. Modules (/modules/{moduleId})
+    // 4. Modules (/modules/{moduleId})
     match /modules/{moduleId} {
       allow get: if isEmailVerified() && isValidId(moduleId) && existing().userId == request.auth.uid;
       allow list: if isEmailVerified() && existing().userId == request.auth.uid;
@@ -343,13 +415,12 @@ service cloud.firestore {
         incoming().createdAt == existing().createdAt &&
         incoming().updatedAt == request.time &&
         isCourseOwner(existing().courseId) && (
-          // Action: Update Module Title or Summary
           incoming().diff(existing()).affectedKeys().hasOnly(['title', 'summary', 'orderIndex', 'updatedAt'])
         );
       allow delete: if isEmailVerified() && isValidId(moduleId) && existing().userId == request.auth.uid;
     }
 
-    // 4. Lessons (/lessons/{lessonId})
+    // 5. Lessons (/lessons/{lessonId})
     match /lessons/{lessonId} {
       allow get: if isEmailVerified() && isValidId(lessonId) && existing().userId == request.auth.uid;
       allow list: if isEmailVerified() && existing().userId == request.auth.uid;
@@ -370,8 +441,8 @@ service cloud.firestore {
         incoming().createdAt == existing().createdAt &&
         incoming().updatedAt == request.time &&
         isCourseOwner(existing().courseId) && (
-          // Action: Lazy-Load / Update Lesson Content, Go-Deeper Notes, or Completion State
           incoming().diff(existing()).affectedKeys().hasOnly([
+            'title',
             'contentMarkdown',
             'simplifiedMarkdown',
             'examplesMarkdown',
@@ -382,7 +453,7 @@ service cloud.firestore {
       allow delete: if isEmailVerified() && isValidId(lessonId) && existing().userId == request.auth.uid;
     }
 
-    // 5. Flashcards (/flashcards/{flashcardId})
+    // 6. Flashcards (/flashcards/{flashcardId})
     match /flashcards/{flashcardId} {
       allow get: if isEmailVerified() && isValidId(flashcardId) && existing().userId == request.auth.uid;
       allow list: if isEmailVerified() && existing().userId == request.auth.uid;
@@ -402,7 +473,6 @@ service cloud.firestore {
         incoming().createdAt == existing().createdAt &&
         incoming().updatedAt == request.time &&
         isCourseOwner(existing().courseId) && (
-          // Action: SM-2 Spaced Repetition Review Schedule Update
           incoming().diff(existing()).affectedKeys().hasOnly([
             'easinessFactor',
             'intervalDays',
@@ -414,7 +484,7 @@ service cloud.firestore {
       allow delete: if isEmailVerified() && isValidId(flashcardId) && existing().userId == request.auth.uid;
     }
 
-    // 6. Homework & Math Solutions (/homeworkSolutions/{solutionId})
+    // 7. Homework & Math Solutions (/homeworkSolutions/{solutionId})
     match /homeworkSolutions/{solutionId} {
       allow get: if isEmailVerified() && isValidId(solutionId) && existing().userId == request.auth.uid;
       allow list: if isEmailVerified() && existing().userId == request.auth.uid;
@@ -430,7 +500,6 @@ service cloud.firestore {
         incoming().userId == existing().userId &&
         incoming().createdAt == existing().createdAt &&
         incoming().updatedAt == request.time && (
-          // Action: Update Solution Notes or Final Answer
           incoming().diff(existing()).affectedKeys().hasOnly([
             'extractedLatex',
             'finalAnswer',

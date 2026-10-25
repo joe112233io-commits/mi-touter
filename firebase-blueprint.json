@@ -64,6 +64,91 @@
         "updatedAt"
       ]
     },
+    "AIProviderMetadata": {
+      "title": "AIProviderMetadata",
+      "description": "Non-secret AI provider configuration metadata owned by a learner (raw API keys are never stored in Firestore).",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user who owns this AI provider configuration.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "description": "User-facing display name of the AI provider.",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "providerType": {
+          "type": "string",
+          "description": "Provider identifier (openrouter, gemini, openai, anthropic, groq, deepseek, custom).",
+          "minLength": 2,
+          "maxLength": 40
+        },
+        "protocol": {
+          "type": "string",
+          "description": "API protocol family.",
+          "enum": ["openai-compatible", "gemini-native", "gemini-server", "anthropic-messages", "custom-rest"],
+          "minLength": 5,
+          "maxLength": 40
+        },
+        "baseUrl": {
+          "type": "string",
+          "description": "Base URL of the API endpoint.",
+          "minLength": 0,
+          "maxLength": 300
+        },
+        "modelId": {
+          "type": "string",
+          "description": "Target LLM model identifier.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "maskedKey": {
+          "type": "string",
+          "description": "Masked preview of the API key (never the raw secret).",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "isDefault": {
+          "type": "boolean",
+          "description": "Whether this provider is the default for course generation."
+        },
+        "lastTestedStatus": {
+          "type": "string",
+          "description": "Result of the most recent live connection test.",
+          "enum": ["untested", "verified", "failed"],
+          "minLength": 6,
+          "maxLength": 20
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when updated."
+        }
+      },
+      "required": [
+        "userId",
+        "name",
+        "providerType",
+        "protocol",
+        "baseUrl",
+        "modelId",
+        "maskedKey",
+        "isDefault",
+        "lastTestedStatus",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
     "Course": {
       "title": "Course",
       "description": "A bespoke AI-generated or curated learning course owned by a learner.",
@@ -417,6 +502,10 @@
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/UserProfile" },
       "description": "Stores learner profile and study preferences scoped strictly to the user."
+    },
+    "/aiProviders/{providerId}": {
+      "schema": { "$ref": "#/entities/AIProviderMetadata" },
+      "description": "Stores non-secret AI provider metadata and masked key previews scoped strictly by userId."
     },
     "/courses/{courseId}": {
       "schema": { "$ref": "#/entities/Course" },

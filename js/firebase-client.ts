@@ -12,6 +12,7 @@ import {
   doc,
   setDoc,
   updateDoc,
+  deleteDoc,
   getDoc,
   getDocFromServer,
   collection,
@@ -135,6 +136,7 @@ class TutorAIFirebaseBridge {
   private unsubscribers: Unsubscribe[] = [];
   private knownCloudDocs = {
     users: new Set<string>(),
+    aiProviders: new Set<string>(),
     courses: new Set<string>(),
     modules: new Set<string>(),
     lessons: new Set<string>(),
@@ -200,12 +202,17 @@ class TutorAIFirebaseBridge {
 
   private updateAuthUI(user: FirebaseUser | null) {
     const navSignInBtn = document.getElementById('navSignInBtn');
+    const mobileSignInBtn = document.getElementById('mobileSignInBtn');
     const storageLabel = document.getElementById('profileStorageEngine');
     const w = window as any;
 
     if (user) {
+      const displayName = user.displayName || user.email?.split('@')[0] || 'Account';
       if (navSignInBtn) {
-        navSignInBtn.textContent = `${user.displayName || user.email?.split('@')[0] || 'Account'} (Sign Out)`;
+        navSignInBtn.textContent = `${displayName} (Sign Out)`;
+      }
+      if (mobileSignInBtn) {
+        mobileSignInBtn.textContent = `${displayName} (Sign Out)`;
       }
       if (storageLabel) {
         storageLabel.textContent = 'Firebase Firestore + Realm';
@@ -218,15 +225,26 @@ class TutorAIFirebaseBridge {
           w.realmDB.persist();
         }
       }
-      if (w.tutorApp && w.tutorApp.currentView === 'profile') {
-        w.tutorApp.renderProfileView();
+      if (w.tutorApp) {
+        if (typeof w.tutorApp.onFirebaseUserChanged === 'function') {
+          w.tutorApp.onFirebaseUserChanged(user);
+        }
+        if (w.tutorApp.currentView === 'profile') {
+          w.tutorApp.renderProfileView();
+        }
       }
     } else {
-      if (navSignInBtn) {
+      if (w.tutorApp && typeof w.tutorApp.onFirebaseUserChanged === 'function') {
+        w.tutorApp.onFirebaseUserChanged(null);
+      }
+      if (navSignInBtn && (!w.tutorApp || !w.tutorApp.localAccountUser)) {
         navSignInBtn.textContent = 'SIGN IN';
       }
+      if (mobileSignInBtn && (!w.tutorApp || !w.tutorApp.localAccountUser)) {
+        mobileSignInBtn.textContent = 'Sign In / Register';
+      }
       if (storageLabel) {
-        storageLabel.textContent = 'Realm DB Local';
+        storageLabel.textContent = 'Realm DB + Encrypted Vault';
       }
     }
   }
@@ -691,6 +709,69 @@ class TutorAIFirebaseBridge {
       this.knownCloudDocs.homeworkSolutions.add(solId);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
+    }
+  }
+
+  public async syncAIProviderMetadata(provider: any) {
+    if (!this.currentUser || !this.currentUser.emailVerified) return;
+    const uid = sanitizeId(this.currentUser.uid, 'usr');
+    const provId = sanitizeId(provider.id, 'prov');
+    const path = `aiProviders/${provId}`;
+    const ref = doc(db, 'aiProviders', provId);
+
+    const allowedProtocols = ['openai-compatible', 'gemini-native', 'gemini-server', 'anthropic-messages', 'custom-rest'];
+    const protocol = allowedProtocols.includes(provider.protocol) ? provider.protocol : 'openai-compatible';
+    const allowedStatus = ['untested', 'verified', 'failed'];
+    const lastTestedStatus = allowedStatus.includes(provider.lastTestedStatus) ? provider.lastTestedStatus : 'untested';
+
+    if (this.knownCloudDocs.aiProviders.has(provId)) {
+      try {
+        await updateDoc(ref, {
+          name: clampString(provider.name, 1, 80, 'AI Provider'),
+          providerType: clampString(provider.providerType || 'custom', 2, 40, 'custom'),
+          protocol,
+          baseUrl: clampString(provider.baseUrl ?? '', 0, 300, ''),
+          modelId: clampString(provider.modelId, 1, 120, 'gemini-3.8-flash'),
+          maskedKey: clampString(provider.maskedKey || '••••••••', 1, 40, '••••••••'),
+          isDefault: Boolean(provider.isDefault),
+          lastTestedStatus,
+          updatedAt: serverTimestamp()
+        });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, path);
+      }
+    } else {
+      try {
+        await setDoc(ref, {
+          userId: uid,
+          name: clampString(provider.name, 1, 80, 'AI Provider'),
+          providerType: clampString(provider.providerType || 'custom', 2, 40, 'custom'),
+          protocol,
+          baseUrl: clampString(provider.baseUrl ?? '', 0, 300, ''),
+          modelId: clampString(provider.modelId, 1, 120, 'gemini-3.8-flash'),
+          maskedKey: clampString(provider.maskedKey || '••••••••', 1, 40, '••••••••'),
+          isDefault: Boolean(provider.isDefault),
+          lastTestedStatus,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        this.knownCloudDocs.aiProviders.add(provId);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.CREATE, path);
+      }
+    }
+  }
+
+  public async deleteAIProviderMetadata(providerIdRaw: string) {
+    if (!this.currentUser || !this.currentUser.emailVerified) return;
+    const provId = sanitizeId(providerIdRaw, 'prov');
+    if (!this.knownCloudDocs.aiProviders.has(provId)) return;
+    const path = `aiProviders/${provId}`;
+    try {
+      await deleteDoc(doc(db, 'aiProviders', provId));
+      this.knownCloudDocs.aiProviders.delete(provId);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
     }
   }
 }
