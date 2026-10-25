@@ -940,7 +940,7 @@
             </div>
             <div style="background: #F8FAFC; padding: 14px; border-radius: 8px;">
               <div style="font-size: 0.85rem; color: var(--muted); font-weight: 700;">STORAGE ENGINE</div>
-              <div style="font-size: 1.1rem; font-weight: 800; color: var(--navy);">Realm DB Local</div>
+              <div style="font-size: 1.1rem; font-weight: 800; color: var(--navy);" id="profileStorageEngine">Realm DB Local</div>
             </div>
           </div>
         </div>
@@ -1037,13 +1037,10 @@
     <div class="modal-dialog" style="max-width: 440px; text-align: center;">
       <button class="modal-close-btn">&times;</button>
       <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--navy); margin-bottom: 8px;">Welcome to TutorAI</h2>
-      <p style="font-size: 0.9rem; color: var(--slate-light); margin-bottom: 24px;">Sign in to sync your bespoke courses and flashcards across devices.</p>
+      <p style="font-size: 0.9rem; color: var(--slate-light); margin-bottom: 24px;">Sign in with Google to sync your bespoke courses, progress, and flashcards with Firebase Cloud Firestore.</p>
 
-      <button class="btn-secondary" style="width: 100%; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 10px;" onclick="document.getElementById('authModal').classList.remove('open'); window.tutorApp.showToast('Signed in with Google SSO');">
-        <span>🔍</span> Continue with Google
-      </button>
-      <button class="btn-secondary" style="width: 100%; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 10px;" onclick="document.getElementById('authModal').classList.remove('open'); window.tutorApp.showToast('Signed in with Lumination AI SSO');">
-        <span>🏢</span> Institutional SSO (SAML/Clerk)
+      <button class="btn-primary" style="width: 100%; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 10px;" onclick="window.firebaseBridge && window.firebaseBridge.signInWithGoogle()">
+        <span>🔐</span> Continue with Google
       </button>
 
       <div style="font-size: 0.8rem; color: var(--muted);">By continuing, you agree to TutorAI's Terms and Privacy Policy.</div>
@@ -1081,7 +1078,9 @@
   <script src="js/ai-engine.js"></script>
   <!-- 4. Text-to-Speech Controller -->
   <script src="js/speech.js"></script>
-  <!-- 5. Master Application Coordinator & Routing -->
+  <!-- 5. Firebase Auth & Cloud Firestore Sync Engine -->
+  <script src="js/firebase-bundle.js"></script>
+  <!-- 6. Master Application Coordinator & Routing -->
   <script src="js/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,443 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default-Deny Catch-All)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // Global Hardened Primitives
+    // =========================================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isEmailVerified() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isCourseOwner(courseId) {
+      return exists(/databases/$(database)/documents/courses/$(courseId)) &&
+        get(/databases/$(database)/documents/courses/$(courseId)).data.userId == request.auth.uid;
+    }
+
+    function isModuleOwner(moduleId, courseId) {
+      return exists(/databases/$(database)/documents/modules/$(moduleId)) &&
+        get(/databases/$(database)/documents/modules/$(moduleId)).data.userId == request.auth.uid &&
+        get(/databases/$(database)/documents/modules/$(moduleId)).data.courseId == courseId;
+    }
+
+    // =========================================================================
+    // Entity Validation Blueprints (Anti-Update-Gap)
+    // =========================================================================
+    function isValidUserProfile(data) {
+      return isEmailVerified() &&
+        data.keys().hasAll([
+          'userId',
+          'fullName',
+          'planTier',
+          'coursesGeneratedCount',
+          'knowledgeLevelPref',
+          'learningStylePref',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId',
+          'fullName',
+          'planTier',
+          'coursesGeneratedCount',
+          'knowledgeLevelPref',
+          'learningStylePref',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.userId) &&
+        data.userId == request.auth.uid &&
+        data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 120 &&
+        data.planTier is string && data.planTier.size() >= 4 && data.planTier.size() <= 20 &&
+        data.planTier in ['free', 'mentor', 'genius', 'enterprise'] &&
+        data.coursesGeneratedCount is int && data.coursesGeneratedCount >= 0 && data.coursesGeneratedCount <= 100000 &&
+        data.knowledgeLevelPref is string && data.knowledgeLevelPref.size() >= 3 && data.knowledgeLevelPref.size() <= 32 &&
+        data.knowledgeLevelPref in ['beginner', 'intermediate', 'advanced', 'all'] &&
+        data.learningStylePref is string && data.learningStylePref.size() >= 1 && data.learningStylePref.size() <= 64 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidCourse(data) {
+      return isEmailVerified() &&
+        data.keys().hasAll([
+          'userId',
+          'title',
+          'topicPrompt',
+          'learnerLevel',
+          'description',
+          'progressPercentage',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId',
+          'title',
+          'topicPrompt',
+          'learnerLevel',
+          'description',
+          'progressPercentage',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.userId) &&
+        data.userId == request.auth.uid &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.topicPrompt is string && data.topicPrompt.size() >= 1 && data.topicPrompt.size() <= 500 &&
+        data.learnerLevel is string && data.learnerLevel.size() >= 3 && data.learnerLevel.size() <= 32 &&
+        data.learnerLevel in ['beginner', 'intermediate', 'advanced', 'all'] &&
+        data.description is string && data.description.size() >= 1 && data.description.size() <= 2000 &&
+        (data.progressPercentage is int || data.progressPercentage is float) &&
+        data.progressPercentage >= 0 && data.progressPercentage <= 100 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidModule(data) {
+      return isEmailVerified() &&
+        data.keys().hasAll([
+          'userId',
+          'courseId',
+          'orderIndex',
+          'title',
+          'summary',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId',
+          'courseId',
+          'orderIndex',
+          'title',
+          'summary',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.userId) &&
+        data.userId == request.auth.uid &&
+        isValidId(data.courseId) &&
+        data.orderIndex is int && data.orderIndex >= 1 && data.orderIndex <= 100 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.summary is string && data.summary.size() >= 0 && data.summary.size() <= 1000 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidLesson(data) {
+      return isEmailVerified() &&
+        data.keys().hasAll([
+          'userId',
+          'courseId',
+          'moduleId',
+          'orderIndex',
+          'title',
+          'contentMarkdown',
+          'simplifiedMarkdown',
+          'examplesMarkdown',
+          'isCompleted',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId',
+          'courseId',
+          'moduleId',
+          'orderIndex',
+          'title',
+          'contentMarkdown',
+          'simplifiedMarkdown',
+          'examplesMarkdown',
+          'isCompleted',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.userId) &&
+        data.userId == request.auth.uid &&
+        isValidId(data.courseId) &&
+        isValidId(data.moduleId) &&
+        data.orderIndex is int && data.orderIndex >= 1 && data.orderIndex <= 100 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.contentMarkdown is string && data.contentMarkdown.size() >= 0 && data.contentMarkdown.size() <= 50000 &&
+        data.simplifiedMarkdown is string && data.simplifiedMarkdown.size() >= 0 && data.simplifiedMarkdown.size() <= 25000 &&
+        data.examplesMarkdown is string && data.examplesMarkdown.size() >= 0 && data.examplesMarkdown.size() <= 25000 &&
+        data.isCompleted is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidFlashcard(data) {
+      return isEmailVerified() &&
+        data.keys().hasAll([
+          'userId',
+          'courseId',
+          'lessonId',
+          'frontPrompt',
+          'backAnswer',
+          'easinessFactor',
+          'intervalDays',
+          'repetitions',
+          'nextReviewAtIso',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId',
+          'courseId',
+          'lessonId',
+          'frontPrompt',
+          'backAnswer',
+          'easinessFactor',
+          'intervalDays',
+          'repetitions',
+          'nextReviewAtIso',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.userId) &&
+        data.userId == request.auth.uid &&
+        isValidId(data.courseId) &&
+        isValidId(data.lessonId) &&
+        data.frontPrompt is string && data.frontPrompt.size() >= 1 && data.frontPrompt.size() <= 1000 &&
+        data.backAnswer is string && data.backAnswer.size() >= 1 && data.backAnswer.size() <= 2000 &&
+        (data.easinessFactor is int || data.easinessFactor is float) &&
+        data.easinessFactor >= 1.3 && data.easinessFactor <= 5.0 &&
+        data.intervalDays is int && data.intervalDays >= 0 && data.intervalDays <= 36500 &&
+        data.repetitions is int && data.repetitions >= 0 && data.repetitions <= 10000 &&
+        data.nextReviewAtIso is string && data.nextReviewAtIso.size() >= 10 && data.nextReviewAtIso.size() <= 40 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidHomeworkSolution(data) {
+      return isEmailVerified() &&
+        data.keys().hasAll([
+          'userId',
+          'toolType',
+          'inputText',
+          'extractedLatex',
+          'subjectCategory',
+          'finalAnswer',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId',
+          'toolType',
+          'inputText',
+          'extractedLatex',
+          'subjectCategory',
+          'finalAnswer',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.userId) &&
+        data.userId == request.auth.uid &&
+        data.toolType is string && data.toolType.size() >= 5 && data.toolType.size() <= 32 &&
+        data.toolType in ['math_solver', 'homeworkify'] &&
+        data.inputText is string && data.inputText.size() >= 1 && data.inputText.size() <= 2000 &&
+        data.extractedLatex is string && data.extractedLatex.size() >= 0 && data.extractedLatex.size() <= 2000 &&
+        data.subjectCategory is string && data.subjectCategory.size() >= 1 && data.subjectCategory.size() <= 100 &&
+        data.finalAnswer is string && data.finalAnswer.size() >= 1 && data.finalAnswer.size() <= 2000 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // =========================================================================
+    // Collection Match Blocks
+    // =========================================================================
+
+    // 1. User Profiles (/users/{userId})
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) &&
+        isValidId(userId) &&
+        isValidUserProfile(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidUserProfile(incoming()) &&
+        isOwner(userId) &&
+        isValidId(userId) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          // Action: Update Plan or Course Generation Counter or Preferences
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'fullName',
+            'planTier',
+            'coursesGeneratedCount',
+            'knowledgeLevelPref',
+            'learningStylePref',
+            'updatedAt'
+          ])
+        );
+      allow delete: if isOwner(userId) && isValidId(userId) && existing().userId == request.auth.uid;
+    }
+
+    // 2. Courses (/courses/{courseId})
+    match /courses/{courseId} {
+      allow get: if isEmailVerified() && isValidId(courseId) && existing().userId == request.auth.uid;
+      allow list: if isEmailVerified() && existing().userId == request.auth.uid;
+      allow create: if isEmailVerified() &&
+        isValidId(courseId) &&
+        isValidCourse(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidCourse(incoming()) &&
+        isEmailVerified() &&
+        isValidId(courseId) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          // Action: Update Course Progress
+          incoming().diff(existing()).affectedKeys().hasOnly(['progressPercentage', 'updatedAt']) ||
+          // Action: Update Course Metadata
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'learnerLevel', 'progressPercentage', 'updatedAt'])
+        );
+      allow delete: if isEmailVerified() && isValidId(courseId) && existing().userId == request.auth.uid;
+    }
+
+    // 3. Modules (/modules/{moduleId})
+    match /modules/{moduleId} {
+      allow get: if isEmailVerified() && isValidId(moduleId) && existing().userId == request.auth.uid;
+      allow list: if isEmailVerified() && existing().userId == request.auth.uid;
+      allow create: if isEmailVerified() &&
+        isValidId(moduleId) &&
+        isValidModule(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isCourseOwner(incoming().courseId);
+      allow update: if isValidModule(incoming()) &&
+        isEmailVerified() &&
+        isValidId(moduleId) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().courseId == existing().courseId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        isCourseOwner(existing().courseId) && (
+          // Action: Update Module Title or Summary
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'summary', 'orderIndex', 'updatedAt'])
+        );
+      allow delete: if isEmailVerified() && isValidId(moduleId) && existing().userId == request.auth.uid;
+    }
+
+    // 4. Lessons (/lessons/{lessonId})
+    match /lessons/{lessonId} {
+      allow get: if isEmailVerified() && isValidId(lessonId) && existing().userId == request.auth.uid;
+      allow list: if isEmailVerified() && existing().userId == request.auth.uid;
+      allow create: if isEmailVerified() &&
+        isValidId(lessonId) &&
+        isValidLesson(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isCourseOwner(incoming().courseId) &&
+        isModuleOwner(incoming().moduleId, incoming().courseId);
+      allow update: if isValidLesson(incoming()) &&
+        isEmailVerified() &&
+        isValidId(lessonId) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().courseId == existing().courseId &&
+        incoming().moduleId == existing().moduleId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        isCourseOwner(existing().courseId) && (
+          // Action: Lazy-Load / Update Lesson Content, Go-Deeper Notes, or Completion State
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'contentMarkdown',
+            'simplifiedMarkdown',
+            'examplesMarkdown',
+            'isCompleted',
+            'updatedAt'
+          ])
+        );
+      allow delete: if isEmailVerified() && isValidId(lessonId) && existing().userId == request.auth.uid;
+    }
+
+    // 5. Flashcards (/flashcards/{flashcardId})
+    match /flashcards/{flashcardId} {
+      allow get: if isEmailVerified() && isValidId(flashcardId) && existing().userId == request.auth.uid;
+      allow list: if isEmailVerified() && existing().userId == request.auth.uid;
+      allow create: if isEmailVerified() &&
+        isValidId(flashcardId) &&
+        isValidFlashcard(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isCourseOwner(incoming().courseId);
+      allow update: if isValidFlashcard(incoming()) &&
+        isEmailVerified() &&
+        isValidId(flashcardId) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().courseId == existing().courseId &&
+        incoming().lessonId == existing().lessonId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        isCourseOwner(existing().courseId) && (
+          // Action: SM-2 Spaced Repetition Review Schedule Update
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'easinessFactor',
+            'intervalDays',
+            'repetitions',
+            'nextReviewAtIso',
+            'updatedAt'
+          ])
+        );
+      allow delete: if isEmailVerified() && isValidId(flashcardId) && existing().userId == request.auth.uid;
+    }
+
+    // 6. Homework & Math Solutions (/homeworkSolutions/{solutionId})
+    match /homeworkSolutions/{solutionId} {
+      allow get: if isEmailVerified() && isValidId(solutionId) && existing().userId == request.auth.uid;
+      allow list: if isEmailVerified() && existing().userId == request.auth.uid;
+      allow create: if isEmailVerified() &&
+        isValidId(solutionId) &&
+        isValidHomeworkSolution(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidHomeworkSolution(incoming()) &&
+        isEmailVerified() &&
+        isValidId(solutionId) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          // Action: Update Solution Notes or Final Answer
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'extractedLatex',
+            'finalAnswer',
+            'updatedAt'
+          ])
+        );
+      allow delete: if isEmailVerified() && isValidId(solutionId) && existing().userId == request.auth.uid;
+    }
+  }
+}

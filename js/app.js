@@ -214,10 +214,14 @@ class TutorAIApp {
       document.getElementById('videoModal')?.classList.add('open');
     });
 
-    // Sign in modal
+    // Sign in / Sign out button
     document.querySelectorAll('.btn-signin, #navSignInBtn').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.getElementById('authModal')?.classList.add('open');
+        if (window.firebaseBridge && window.firebaseBridge.currentUser) {
+          window.firebaseBridge.signOut();
+        } else {
+          document.getElementById('authModal')?.classList.add('open');
+        }
       });
     });
 
@@ -380,6 +384,30 @@ class TutorAIApp {
 
       this.currentCourseId = courseId;
       this.currentLessonId = firstLessonId;
+
+      if (window.firebaseBridge && window.firebaseBridge.currentUser) {
+        const createdCourse = window.realmDB.objects('Course').find(c => c.id === courseId);
+        const cloudMods = structure.modules.map((mod, modIdx) => {
+          const modId = `mod_${courseId}_${modIdx + 1}`;
+          return {
+            modId,
+            orderIndex: mod.orderIndex || (modIdx + 1),
+            title: mod.moduleTitle,
+            summary: mod.moduleSummary || '',
+            lessons: mod.lessons.map((les, lesIdx) => ({
+              lesId: `les_${modId}_${lesIdx + 1}`,
+              orderIndex: les.orderIndex || (lesIdx + 1),
+              title: les.lessonTitle,
+              contentMarkdown: ''
+            }))
+          };
+        });
+        window.firebaseBridge.syncCourseBundle(createdCourse, cloudMods).catch(console.error);
+        if (this.currentUser) {
+          window.firebaseBridge.syncUserProfile(this.currentUser).catch(console.error);
+        }
+      }
+
       this.showToast('Course created successfully!');
       this.navigateTo('course');
     } catch (err) {
@@ -633,6 +661,9 @@ class TutorAIApp {
       window.realmDB.write(() => {
         lesson.contentMarkdown = generated;
       });
+      if (window.firebaseBridge && window.firebaseBridge.currentUser) {
+        window.firebaseBridge.syncLessonUpdate(lesson, this.currentCourseId).catch(console.error);
+      }
     }
 
     if (bodyEl) {
@@ -667,12 +698,18 @@ class TutorAIApp {
       if (!lesson.simplifiedMarkdown) {
         lesson.simplifiedMarkdown = await window.tutorAIEngine.generateSimplify(lesson.contentMarkdown, lesson.title);
         window.realmDB.persist();
+        if (window.firebaseBridge && window.firebaseBridge.currentUser) {
+          window.firebaseBridge.syncLessonUpdate(lesson, this.currentCourseId).catch(console.error);
+        }
       }
       resultsPanel.innerHTML = this.renderMarkdown(lesson.simplifiedMarkdown);
     } else if (action === 'examples') {
       if (!lesson.examplesMarkdown) {
         lesson.examplesMarkdown = await window.tutorAIEngine.generateExamples(lesson.contentMarkdown, lesson.title);
         window.realmDB.persist();
+        if (window.firebaseBridge && window.firebaseBridge.currentUser) {
+          window.firebaseBridge.syncLessonUpdate(lesson, this.currentCourseId).catch(console.error);
+        }
       }
       resultsPanel.innerHTML = this.renderMarkdown(lesson.examplesMarkdown);
     } else if (action === 'quiz') {
@@ -695,9 +732,10 @@ class TutorAIApp {
       this.renderInlineQuizWidget(questions, resultsPanel);
     } else if (action === 'flashcards') {
       const cards = await window.tutorAIEngine.generateFlashcardsForLesson(lesson.title, lesson.contentMarkdown);
+      const createdCards = [];
       window.realmDB.write(() => {
         cards.forEach(card => {
-          window.realmDB.create('Flashcard', {
+          const fcObj = window.realmDB.create('Flashcard', {
             id: 'fc_' + Math.random().toString(36).substr(2, 9),
             userId: this.currentUser?.id || 'usr_default_learner',
             courseId: this.currentCourseId,
@@ -709,8 +747,12 @@ class TutorAIApp {
             repetitions: 0,
             nextReviewAt: new Date().toISOString()
           });
+          createdCards.push(fcObj);
         });
       });
+      if (window.firebaseBridge && window.firebaseBridge.currentUser) {
+        createdCards.forEach(fc => window.firebaseBridge.syncFlashcard(fc).catch(console.error));
+      }
       resultsPanel.innerHTML = `
         <div style="text-align: center; padding: 20px;">
           <h4 style="color: #16A34A; margin-bottom: 8px;">✓ 3 Flashcards Generated & Added!</h4>
@@ -816,6 +858,14 @@ class TutorAIApp {
       }
     });
 
+    if (window.firebaseBridge && window.firebaseBridge.currentUser) {
+      window.firebaseBridge.syncLessonUpdate(lesson, this.currentCourseId).catch(console.error);
+      const updatedCourse = window.realmDB.objects('Course').find(c => c.id === this.currentCourseId);
+      if (updatedCourse) {
+        window.firebaseBridge.syncCourseProgress(updatedCourse.id, updatedCourse.progressPercentage).catch(console.error);
+      }
+    }
+
     this.showToast('Lesson marked complete! Progress updated.');
     this.renderCourseWorkspace();
   }
@@ -894,9 +944,10 @@ class TutorAIApp {
     const solution = await window.tutorAIEngine.solveMathProblem(equation);
 
     // Save solution to Realm DB
+    const solId = 'sol_' + Date.now();
     window.realmDB.write(() => {
       window.realmDB.create('HomeworkSolution', {
-        id: 'sol_' + Date.now(),
+        id: solId,
         userId: this.currentUser?.id || 'usr_default_learner',
         toolType: 'math_solver',
         inputText: equation,
@@ -908,6 +959,16 @@ class TutorAIApp {
         createdAt: new Date().toISOString()
       });
     });
+    if (window.firebaseBridge && window.firebaseBridge.currentUser) {
+      window.firebaseBridge.syncHomeworkSolution({
+        id: solId,
+        toolType: 'math_solver',
+        inputText: equation,
+        extractedLatex: solution.recognizedLatex,
+        subjectCategory: solution.domain,
+        finalAnswer: solution.finalAnswer
+      }).catch(console.error);
+    }
 
     panel.innerHTML = `
       <div class="math-problem-headline">
@@ -1011,6 +1072,9 @@ class TutorAIApp {
       currentCard.repetitions = update.repetitions;
       currentCard.nextReviewAt = update.nextReviewAt;
     });
+    if (window.firebaseBridge && window.firebaseBridge.currentUser) {
+      window.firebaseBridge.syncFlashcard(currentCard).catch(console.error);
+    }
 
     const labels = ['Again (Session)', 'Hard (1 day)', 'Good (Spaced)', 'Easy (Mastered)'];
     this.showToast(`Graded: ${labels[q]} | Next review in ${update.intervalDays} day(s).`);
@@ -1161,6 +1225,9 @@ class TutorAIApp {
         this.currentUser.planTier = tier;
       }
     });
+    if (window.firebaseBridge && window.firebaseBridge.currentUser && this.currentUser) {
+      window.firebaseBridge.syncUserProfile(this.currentUser).catch(console.error);
+    }
     this.showToast(`Plan successfully switched to: ${tier.toUpperCase()}`);
     this.renderProfileView();
   }

@@ -5,8 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js",
-    "build": "echo 'Static build complete'",
+    "dev": "npx esbuild js/firebase-client.ts --bundle --outfile=js/firebase-bundle.js --format=iife --target=es2020 && node server.js",
+    "build": "npx esbuild js/firebase-client.ts --bundle --outfile=js/firebase-bundle.js --format=iife --target=es2020",
+    "lint": "npx eslint firestore.rules",
     "serve": "node server.js"
   },
   "keywords": [
@@ -21,9 +22,14 @@
   "author": "Lumination AI / Azvai Engineering Replica",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "firebase": "^13.1.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@firebase/eslint-plugin-security-rules": "^0.0.2",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.13.0"
+  },
   "build": {
     "appId": "com.azvai.tutorai",
     "productName": "TutorAI",
